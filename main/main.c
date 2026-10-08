@@ -364,7 +364,7 @@ static bool execute_control_impl(badge_control_command_t c) {
     if(c.kind==BC_BRIGHTNESS){
         navigation.brightness=c.value/20-1;bsp_display_backlight(c.value);save_settings();publish_control();return storage_ok;
     }
-    const char *target=c.kind==BC_YAO?"cyber-yao":c.kind==BC_MUYU?"zen-muyu":(c.kind==BC_RADIO||c.kind==BC_RADIO_PRESET)?"leo-radio":c.kind==BC_VOICE||c.kind==BC_PLAY_VOICE?"voice-keychain":NULL;
+    const char *target=c.kind==BC_YAO?"cyber-yao":c.kind==BC_MUSE?"muse":c.kind==BC_MUYU?"zen-muyu":(c.kind==BC_RADIO||c.kind==BC_RADIO_PRESET)?"leo-radio":c.kind==BC_VOICE||c.kind==BC_PLAY_VOICE?"voice-keychain":NULL;
     size_t index=0;if(target){for(;index<BADGE_GAME_COUNT;index++)if(!strcmp(BADGE_GAMES_REGISTRY[index].id,target))break;if(index==BADGE_GAME_COUNT)return false;}
     /* Recheck mutable profile data before stopping the conversation. */
     if(c.kind==BC_QR||c.kind==BC_BADGE){

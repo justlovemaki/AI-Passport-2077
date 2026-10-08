@@ -34,6 +34,15 @@ LV_FONT_DECLARE(font_badge_10);
 #define BADGE_HINT_XZ_RETRY "上下音量 OK重试 长上表情 长下设置 长OK返回"
 #define BADGE_HINT_XZ_WAIT "上下音量 长上表情 长下设置 长OK返回"
 #define BADGE_HINT_XZ_INTERRUPT "上下音量 OK打断 长上表情 长下设置 长OK返回"
+#define BADGE_HINT_MUSE_SETUP "手机页设置 长下形象 长OK返回"
+#define BADGE_HINT_MUSE_PAIR "OK确认 长下重配 长OK返回"
+#define BADGE_HINT_MUSE_WAIT "请等待 长下形象 长OK返回"
+#define BADGE_HINT_MUSE_READY "按住上键说话 松开发送 长下形象 长OK返回"
+#define BADGE_HINT_MUSE_LISTEN "松开上键发送 下键取消 长OK返回"
+#define BADGE_HINT_MUSE_WORK "下键取消等待 长OK返回"
+#define BADGE_HINT_MUSE_REPLY "按住上键继续说话 长下形象 长OK返回"
+#define BADGE_HINT_MUSE_PAGES "OK翻页 按住上键继续说话 长下形象 长OK返回"
+#define BADGE_HINT_MUSE_ERROR "OK重试 长下重新配对 长OK返回"
 static inline lv_obj_t *badge_footer_create(lv_obj_t *parent,const char *text) {
     lv_obj_t *o=lv_label_create(parent);
     lv_obj_set_pos(o,8,300);lv_obj_set_size(o,224,14);

@@ -5,7 +5,7 @@
 > 硬件平台：FoloToy AI Passport (ESP32-C3 · 8 MB Flash · 240 × 320 ST7789 显示屏 · 三物理按键 · ES8311 音频 · CW2017 电量计)  
 > 固件版本：**v2.6.53**
 
-基于赛博朋克荒坂企业风格打造的智能全功能工牌系统。集成 **5 款内置主题化小程序**、**全套小智 AI 语音交互与 19 项设备控制工具**、**多套矢量情绪表情**、**5 套独立本地身份卡槽** 及 **离线 Web 端侧配置套件**。
+基于赛博朋克荒坂企业风格打造的智能全功能工牌系统。集成 **6 款内置主题化小程序**、**全套小智 AI 语音交互与 19 项设备控制工具**、**多套矢量情绪表情**、**5 套独立本地身份卡槽** 及 **离线 Web 端侧配置套件**。
 
 页面与选项切换采用 160ms 扫描线视觉反馈，告别多余延迟与虚假动效。全部界面文字、矢量图案与排版深度针对 240 × 320 竖屏优化。
 
@@ -32,10 +32,11 @@
      │ 3. 城市电台        │                   │ · 我的二维码       │
      │ 4. 赛博摇卦        │                   │ · 系统设置 (含小智)│
      │ 5. 圣杯决策        │                   │ · 返回工牌首页     │
+     │ 6. Muse           │                   └───────────────────┘
      └───────────────────┘                   └───────────────────┘
 ```
 
-### 1. 五款主题化内置小程序 (Mini Apps)
+### 1. 六款主题化内置小程序 (Mini Apps)
 
 所有内置小程序均由系统统一管理生命周期，实时自适应当前工牌的 5 色主题配色方案（背景色、面板色、强调色、主文字色、辅文字色）：
 
@@ -46,6 +47,7 @@
 | **城市电台** | `leo-radio` | 集成 LEO Radio 在线收音机，连上 Wi-Fi 即可流式播放国内外精选城市广播频道；支持断点记忆频道。 | **上下键**：快速切台<br>**OK**：播放 / 暂停<br>**长按上**：网络与电台设置 |
 | **赛博摇卦** | `cyber-yao` | 基于 CyberYAO 六爻周易起卦模型；投掷 3 枚铜钱自下而上成卦；支持本卦/之卦/动爻/卦爻辞滚屏阅读；支持基于 IP 经度的**真太阳时天文校准**；可一键唤醒小智白话解读。 | **OK**：投掷铜钱成爻 / 结果页呼出小智解读<br>**上下键**：滚屏浏览卦爻辞原文<br>**长按下**：清空重新起卦 |
 | **圣杯决策** | `holy-cup` | 传统民间投掷杯筊决策游戏。默念问题后投掷两个杯筊，以一正一反为「圣杯（可行）」、双正为「笑杯（再问）」、双反为「阴杯（暂缓）」；矢量立体杯筊渲染，带投掷次数统计。 | **OK**：再掷一次<br>**长按 OK**：退出返回小程序列表 |
+| **Muse** | `muse` | 接入 Muse Gadget，支持运行时填写 SDK Token/代理、手机配对、按住说话发送语音便笺、分页显示文字回复，并复用小智矢量形象元素但独立保存 Muse 风格。凭证只保存在本机 NVS，不编译进固件。 | **按住上键**：录音<br>**松开上键**：发送<br>**下键**：取消本地等待<br>**OK**：确认/重试/翻页<br>**长按下键**：重置 Muse 配对 |
 
 > **全局二级菜单通用退出规则**：在任意小程序或系统子页面中，**长按 OK 键**均会呼出统一步骤菜单：**返回上一级 / 回到首页 / 继续当前页面**，杜绝误触丢进度。
 
@@ -64,7 +66,7 @@
 - **19 项内置 MCP 设备控制与联动工具**：
   小智云端支持识别并直接调用本工牌的硬件接口，实现全语音控制：
   1. `self.get_device_status`：查询电量、Wi-Fi、屏幕亮度、当前与所有已配置工牌编号和姓名。
-  2. `self.apps.open`：语音启动指定小程序（木鱼、电台、钥匙扣、摇卦）。
+  2. `self.apps.open`：语音启动指定小程序（木鱼、电台、钥匙扣、摇卦、Muse）。
   3. `self.audio.search` / `self.audio.play` / `self.audio.play_random`：搜索音效、播报指定 ID 或随机播一段音效。
   4. `self.badge.show_qr`：语音立即展示当前工牌二维码并退出对话。
   5. `self.badge.switch`：根据编号 (1~5) 或姓名切换当前激活工牌。
@@ -87,6 +89,7 @@
   - **USB Web Serial 直连**：使用 Chrome/Edge 浏览器打开离线网页，插入 USB 数据线即可连接。免驱动、免装软件、数据不出本地，完全不上云。
   - **手机热点免线配置**：若无电脑，在工牌进入 **系统设置 → 网络设置** 按 OK 开启临时热点，手机连接工牌 Wi-Fi 后访问 `http://192.168.4.1`，即可通过手机浏览器完成全部相同配置。
   - **图片与排版自适应**：支持上传最大 10 MB 的个人照片与微信二维码图片，页面自动裁切为 72 × 88 头像及高精细度单色二维码，自动分行排版。
+  - **Muse 配置**：保存设备主人提供的 Muse SDK Token 和可选局域网 HTTP 代理，Token 不回传浏览器。更换 Token 会清除旧 Muse 配对；只改代理会保留配对。
 
 ---
 
@@ -163,5 +166,6 @@ python tools/flash_badge.py --port COM6 --backup-dir ./my_backup
 - 城市电台小程序基于开源项目 [leo-radio](https://github.com/leo0183/leo-radio) (MIT License)。
 - 音效钥匙扣小程序来源于 [Shinku-Chen/ai-passport (feature/voice-keychain)](https://github.com/Shinku-Chen/ai-passport/tree/feature/voice-keychain) (MIT License)。
 - 小智 AI 对话协议与接口适配基于 [FoloToy/folo-ai-passport-xiaozhi](https://github.com/FoloToy/folo-ai-passport-xiaozhi) (MIT License)。
+- Muse 接入基于 [manchunx7-bit/ai-passport-muse](https://github.com/manchunx7-bit/ai-passport-muse)（MIT）和 [Muse Gadget SDK](https://github.com/facebookincubator/muse-gadget-sdk)（Apache-2.0）；第三方声明保留在 `components/passport_muse` 与 `components/noise_core`，不包含官方 Jollybot 美术。
 - 赛博摇卦周易古籍数据来源于开源项目 [CyberYAO](https://github.com/XadillaX/CyberYAO) (MIT License)。
 - 视觉参考：Arasaka 与 Cyberpunk 2077 相关徽标与概念属于 CD PROJEKT RED 及其各自所有者，本项目仅作开源极客软硬件学习与个人把玩。

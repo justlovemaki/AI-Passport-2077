@@ -306,8 +306,11 @@ static esp_err_t i2s_full_duplex_init(void) {
     i2s_chan_config_t chan = {
         .id = BSP_I2S_PORT,
         .role = I2S_ROLE_MASTER,
-        .dma_desc_num = 6,
-        .dma_frame_num = 240,
+        // Official AI Passport Muse profile: 40 ms of mono capture buffering.
+        // The former 6 x 240 full-duplex rings consumed the contiguous DMA
+        // blocks needed by the no-PSRAM C3's TLS sender after recording.
+        .dma_desc_num = 4,
+        .dma_frame_num = 160,
         .auto_clear_after_cb = true,
         .auto_clear_before_cb = false,
         .intr_priority = 0,

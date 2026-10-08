@@ -25,7 +25,7 @@ Xiaozhi service to be connected and support device MCP tools.
 | Tool | Arguments / behavior |
 | --- | --- |
 | `self.get_device_status` | Volume, actual Wi-Fi state, brightness, configured badge numbers, active badge, QR presence, last action result (0 pending/initial, 1 success, -1 failure). |
-| `self.apps.open` | `app`: `zen-muyu`, `leo-radio`, or `voice-keychain`. Opens the existing app. Radio requires Wi-Fi. |
+| `self.apps.open` | `app`: `zen-muyu`, `leo-radio`, `voice-keychain`, `cyber-yao`, or `muse`. Opens the existing app. Radio and Muse require Wi-Fi. |
 | `self.audio.search` | `query` matches title/category; optional `offset`. At most six matches with clip IDs per page. Empty query browses the catalog. |
 | `self.audio.play` | `clip_id` from search. Opens the matching sound category and starts that clip. |
 | `self.badge.show_qr` | Shows the active badge's uploaded QR. Missing QR returns a tool error. |

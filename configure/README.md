@@ -4,9 +4,11 @@
 
 Edit `page.html`, `profile-core.js` and `app.js`, then run `python tools/build_config_page.py` from the repository root. CMake runs the same generator when inputs change. `index.html` and `main/assets/configure.html.gz` are generated standalone/embedded copies. No CDN, external API or cloud service is used.
 
-The serial and hotspot transports share protocol 2. On connection the editor reads persisted identity, theme, icon, avatar, QR and Wi-Fi status. Wi-Fi passwords are not returned; an empty password retains an existing password only for the same SSID. Supported station credentials are open networks or personal passwords of 8–63 UTF-8 bytes. The board supports 2.4 GHz Wi-Fi.
+The serial and hotspot transports share protocol 2. On connection the editor reads persisted identity, theme, icon, avatar, QR, Wi-Fi status, and non-secret Muse configuration status. Wi-Fi passwords are not returned; an empty password retains an existing password only for the same SSID. Supported station credentials are open networks or personal passwords of 8–63 UTF-8 bytes. The board supports 2.4 GHz Wi-Fi.
 
 Hotspot setup: System → OK Network → OK Enable. Join the displayed WPA2 hotspot with its per-session random password and open `http://192.168.4.1`. The server is restricted to the AP interface, rejects foreign origins, and requires a per-session header token for API calls. Ten minutes of HTTP inactivity closes the hotspot. Uploaded data is committed in two banks, with transaction ownership and timeout shared across USB/HTTP. Wi-Fi credentials use a separate NVS blob and are not embedded in profile exports.
+
+Muse setup accepts the owner's SDK token and an optional IPv4 HTTP CONNECT proxy. The token is write-only: the protocol returns only `tokenSet`, never the value. An empty token preserves the saved token. Changing the token clears the old Muse account pairing; changing or clearing only the proxy preserves pairing. Configuration writes are rejected while the Muse app owns its session.
 
 Brand text is rasterized at 148 × 44, icon at 32 × 32, and avatar at 72 × 88. The identity card is 208 × 148 RGB565. QR images are decoded locally, regenerated with integer-sized modules and a quiet zone, then re-decoded to verify identical bytes before accepting the image. Codes too dense for 192 × 192 at two pixels per module are rejected. QR display retains black/white contrast regardless of theme. Actual phone/WeChat scanning must still be checked on the physical display.
 

@@ -146,3 +146,4 @@ GitHub 社区治理文档：[CONTRIBUTING.zh_CN.md](../.github/CONTRIBUTING.zh_C
 
 - [赛博摇卦小程序与小智解读](cyber-yao.zh_CN.md)
 - 圣杯决策小程序（`holy-cup`）
+- [Muse 小程序、安全配置、按键与验收](muse.zh_CN.md)

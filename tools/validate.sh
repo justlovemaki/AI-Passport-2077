@@ -47,6 +47,7 @@ run_static_checks() {
     "${CC:-cc}" -std=c11 -Wall -Wextra -Werror -DBADGE_CONTROL_HOST_TEST -Imain -Itests/yao_stubs tests/test_yao_location.c main/yao_location.c main/yao_time.c -lm -o "${test_dir}/test_yao_location"
     "${test_dir}/test_yao_location"
     node tests/test_yao_config.cjs
+    node tests/test_muse_config_ui.cjs
     "${CC:-cc}" -std=c11 -Wall -Wextra -Werror -Imain \
         tests/test_badge_navigation.c main/badge_navigation.c \
         -o "${test_dir}/test_badge_navigation"
@@ -118,6 +119,10 @@ run_static_checks() {
         tests/test_voice.c main/voice_navigation.c main/voice_stream.c "${test_dir}/voice_catalog.c" \
         -o "${test_dir}/test_voice"
     "${test_dir}/test_voice"
+    "${CC:-cc}" -std=c11 -Wall -Wextra -Werror -Icomponents/passport_muse/sdk -Icomponents/passport_muse/include \
+        tests/test_muse_voice.c components/passport_muse/voice_helpers.c \
+        -o "${test_dir}/test_muse_voice"
+    "${test_dir}/test_muse_voice"
     PYTHONDONTWRITEBYTECODE=1 python3 tests/test_voice_pack.py
     PYTHONDONTWRITEBYTECODE=1 python3 tests/test_flash_badge.py
     PYTHONDONTWRITEBYTECODE=1 python3 tests/test_deep_sleep_contract.py

@@ -67,6 +67,7 @@ int main(void){
     const char *badnums[]={"{\"number\":0}","{\"number\":6}","{\"number\":3}","{\"number\":1.5}","{\"number\":\"2\"}","{\"number\":2,\"number\":1}"};
     for(unsigned i=0;i<sizeof(badnums)/sizeof(*badnums);i++){r=call("self.badge.switch",badnums[i]);assert(error(r)&&!ticket);cJSON_Delete(r);}
     r=call("self.apps.open","{\"app\":\"leo-radio\"}");assert(error(r));cJSON_Delete(r);
+    r=call("self.apps.open","{\"app\":\"muse\"}");assert(error(r));cJSON_Delete(r);
     r=call("self.display.set_brightness","{\"percent\":0}");assert(error(r));cJSON_Delete(r);
     r=call("self.display.set_brightness","{\"percent\":30}");assert(error(r));cJSON_Delete(r);
     r=call("self.display.set_brightness","{\"percent\":60,\"extra\":1}");assert(error(r));cJSON_Delete(r);

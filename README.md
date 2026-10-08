@@ -5,7 +5,7 @@
 > Hardware Target: FoloToy AI Passport (ESP32-C3 · 8 MB Flash · 240 × 320 ST7789 display · 3 physical buttons · ES8311 audio · CW2017 fuel gauge)  
 > Firmware Version: **v2.6.53**
 
-A Cyberpunk/Arasaka corporate-themed wearable badge firmware. Integrates **5 themed mini-apps**, **full XiaoZhi AI voice interaction with 19 MCP device control tools**, **252-pose vector emotion avatars**, **5 independent local badge profile slots**, and **offline Web serial/hotspot configuration**.
+A Cyberpunk/Arasaka corporate-themed wearable badge firmware. Integrates **6 themed mini-apps**, **full XiaoZhi AI voice interaction with 19 MCP device control tools**, **252-pose vector emotion avatars**, **5 independent local badge profile slots**, and **offline Web serial/hotspot configuration**.
 
 Transitions and selections provide a single 160 ms scanning-line response with zero continuous flashing or artificial latency. All fonts, vector glyphs, and layouts are tailored for the 240 × 320 portrait display.
 
@@ -32,10 +32,11 @@ Transitions and selections provide a single 160 ms scanning-line response with z
      │ 3. City Radio     │                   │ · My QR           │
      │ 4. Cyber Yao      │                   │ · System Settings │
      │ 5. Holy Cup       │                   │ · Return to Badge │
+     │ 6. Muse           │                   └───────────────────┘
      └───────────────────┘                   └───────────────────┘
 ```
 
-### 1. Five Themed Built-in Mini-Apps
+### 1. Six Themed Built-in Mini-Apps
 
 All mini-apps are managed under the unified system lifecycle and adapt to the active badge's 5-color palette (background, panel, accent, primary text, muted text):
 
@@ -46,6 +47,7 @@ All mini-apps are managed under the unified system lifecycle and adapt to the ac
 | **City Radio** | `leo-radio` | Internet radio player streaming curated city stations over Wi-Fi, featuring channel resume and audio recovery. | **UP/DOWN**: Switch station<br>**OK**: Play / Pause<br>**Long UP**: Radio / network settings |
 | **Cyber Yao** | `cyber-yao` | I Ching divination based on CyberYAO. Throw 3 coins six times to cast hexagrams from bottom to top; scroll judgements and line texts; automatic true solar time calibration via IP geolocation; one-key XiaoZhi interpretation handoff. | **OK**: Throw coins / Request XiaoZhi reading<br>**UP/DOWN**: Scroll judgements & line text<br>**Long DOWN**: Recast / start over |
 | **Holy Cup** | `holy-cup` | Traditional decision-making oracle (Jiaobei). Cast two crescent wooden blocks for Shengbei (positive / proceed), Xiaobei (laughing / re-ask), or Yinbei (negative / defer). Rendered with vector shading and counter. | **OK**: Cast again<br>**Long OK**: Return to app list |
+| **Muse** | `muse` | Muse Gadget integration with runtime SDK-token/proxy configuration, phone pairing, push-to-talk voice notes, paged text replies, and an independently selected style built from the existing XiaoZhi vector-face elements. Credentials stay in local NVS; no token is compiled into firmware. | **Hold UP**: Record<br>**Release UP**: Send<br>**DOWN**: Cancel local wait<br>**OK**: Confirm/retry/next page<br>**Long DOWN**: Reset Muse pairing |
 
 > **Global Navigation Chooser**: Holding **OK** on any sub-page or mini-app opens a 3-way navigation chooser: **Previous Page / Home / Continue**, avoiding accidental exits or lost progress.
 
@@ -64,7 +66,7 @@ Access XiaoZhi voice conversation directly by **holding UP on Badge Home** or vi
 - **19 MCP Device Control Tools**:
   XiaoZhi understands natural language and invokes on-device functions directly:
   1. `self.get_device_status`: Query battery, Wi-Fi, brightness, and configured badge profiles.
-  2. `self.apps.open`: Launch an app (`zen-muyu`, `leo-radio`, `voice-keychain`, `cyber-yao`).
+  2. `self.apps.open`: Launch an app (`zen-muyu`, `leo-radio`, `voice-keychain`, `cyber-yao`, `muse`).
   3. `self.audio.search` / `self.audio.play` / `self.audio.play_random`: Search or play specific/random audio clips.
   4. `self.badge.show_qr`: Display active personal QR code immediately.
   5. `self.badge.switch`: Switch active badge profile by slot number (1–5) or name.
@@ -87,6 +89,7 @@ Store **5 independent identity profiles** directly in flash, each keeping its ow
   - **Direct USB Web Serial**: Open the offline configuration page in Chrome or Edge, connect USB, and configure without installing drivers, software, or uploading data to any cloud.
   - **Phone Hotspot Setup**: When away from a PC, open **System → Network** and press OK to turn on the configuration hotspot. Connect with a smartphone and browse `http://192.168.4.1` for the full setup UI.
   - **Smart Cropping**: Upload photos and QR codes up to 10 MB; images are cropped to 72 × 88 avatars and sharp monochrome QR bitmaps automatically.
+  - **Muse Setup**: Save an owner-provided Muse SDK token and optional LAN HTTP proxy without returning the token to the browser. Changing the token clears old Muse pairing; changing only the proxy preserves it.
 
 ---
 
@@ -163,5 +166,6 @@ python tools/flash_badge.py --port COM6 --backup-dir ./my_backup
 - City Radio mini-app is based on [leo-radio](https://github.com/leo0183/leo-radio) (MIT License).
 - Voice Keychain mini-app originates from [Shinku-Chen/ai-passport (feature/voice-keychain)](https://github.com/Shinku-Chen/ai-passport/tree/feature/voice-keychain) (MIT License).
 - XiaoZhi AI voice conversation protocol and integration derived from [FoloToy/folo-ai-passport-xiaozhi](https://github.com/FoloToy/folo-ai-passport-xiaozhi) (MIT License).
+- Muse integration is adapted from [manchunx7-bit/ai-passport-muse](https://github.com/manchunx7-bit/ai-passport-muse) (MIT) and the [Muse Gadget SDK](https://github.com/facebookincubator/muse-gadget-sdk) (Apache-2.0). Vendored notices are retained in `components/passport_muse` and `components/noise_core`; official Jollybot artwork is not included.
 - I Ching text and core divination rules derived from [CyberYAO](https://github.com/XadillaX/CyberYAO) (MIT License).
 - Visual references: Arasaka and Cyberpunk 2077 references belong to CD PROJEKT RED and their respective owners. Used here solely for non-commercial open-source maker education.

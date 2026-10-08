@@ -9,7 +9,7 @@
 
 - `images/cyber-badge/` 保存工牌、员工终端、游戏列表、设置和木鱼页面的实际 240 × 320 LVGL 渲染图。荒坂徽记由 `main/badge_ui.c` 以几何图形重绘，预览状态值为示例。木鱼页面沿用上述素材许可。字库生成器同时收集中文标点及工牌、注册表、身份配置文字。
 
-- `font_badge_10.c` 和 `font_badge_28.c` 为 Noto Sans SC 的 OFL 子集，字形位图分别为 2,384 和 16,612 字节。通过 `python tools/generate_badge_fonts.py /path/to/NotoSansSC.ttf` 重新生成。10 像素字体用于辅助终端文字，28 像素用于标题和姓名；28 像素字库也会收集姓名字段中的汉字。
+- `font_badge_10.c` 和 `font_badge_28.c` 为 Noto Sans SC 的 OFL 子集，字形位图分别为 6,547 和 16,612 字节；10 像素字库包含 Muse 操作提示所需字符。通过 `python tools/generate_badge_fonts.py /path/to/NotoSansSC.ttf` 重新生成。10 像素字体用于辅助终端文字，28 像素用于标题和姓名；28 像素字库也会收集姓名字段中的汉字。
 - 荒坂品牌视觉参考：[员工牌设计](https://ko-fi.com/s/5aad91d702)、[徽记图样](https://cyberpunk.fandom.com/fr/wiki/Arasaka)。没有下载或打包商品设计图。几何重绘引用的虚构品牌标识权利独立于代码许可。
 
 - `images/cyber-badge/demo-{card,brand,logo}.rgb565` 是已配置工牌布局的合成主机渲染样本。身份信息为虚构示例，头像为原创几何插画，文字使用上述 Noto Sans SC 字体。这些文件仅作为测试输入，不写入用户工牌资料。

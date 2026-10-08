@@ -25,7 +25,7 @@
 | 工具 | 参数与行为 |
 | --- | --- |
 | `self.get_device_status` | 音量、真实 Wi-Fi 状态、亮度、已配置工牌编号、当前工牌、二维码状态和上次动作结果（0 等待/初始，1 成功，-1 失败）。 |
-| `self.apps.open` | `app` 为 `zen-muyu`（木鱼）、`leo-radio`（城市电台）或 `voice-keychain`（音效钥匙扣）。电台要求 Wi-Fi 已连接。 |
+| `self.apps.open` | `app` 为 `zen-muyu`（木鱼）、`leo-radio`（城市电台）、`voice-keychain`（音效钥匙扣）、`cyber-yao`（摇卦）或 `muse`。电台和 Muse 要求 Wi-Fi 已连接。 |
 | `self.audio.search` | `query` 按标题或分类匹配，`offset` 可选；每页最多六条，返回真实音效编号。关键词为空可分页浏览。 |
 | `self.audio.play` | `clip_id` 使用搜索结果中的编号，打开对应分类并播放指定音效。 |
 | `self.badge.show_qr` | 显示当前工牌已上传的二维码，未上传时返回工具错误。 |

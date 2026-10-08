@@ -212,7 +212,7 @@ static void game_artwork(lv_layer_t *l,badge_game_art_t art) {
     } else if(art==BADGE_GAME_ART_VOICE) {
         for(int i=0;i<34;i++) {
             int wave=i<5?3:((i*19)%31)*(34-i)/29+2;
-            rect(l,36+i*4,185-wave/2,2,wave,i<12?RED:DARK_RED);
+            rect(l,53+i*4,185-wave/2,2,wave,i<12?RED:DARK_RED);
         }
     } else if(art==BADGE_GAME_ART_RADIO) {
         line(l,90,177,150,177,2,RED);line(l,90,177,90,200,2,RED);
@@ -235,6 +235,12 @@ static void game_artwork(lv_layer_t *l,badge_game_art_t art) {
         line(l,146,199,158,192,2,RED);line(l,158,192,164,174,2,DARK_RED);
         line(l,84,174,104,174,2,RED);line(l,136,174,156,174,2,RED);
         circle(l,120,186,3,DARK_RED);
+    } else if(art==BADGE_GAME_ART_MUSE) {
+        line(l,120,167,120,173,2,DARK_RED);circle(l,120,166,2,RED);
+        rect(l,96,173,48,28,DARK_RED);rect(l,101,177,38,19,BLACK);
+        circle(l,111,186,3,RED);circle(l,129,186,3,RED);
+        line(l,114,193,126,193,2,DARK_RED);
+        line(l,92,180,96,180,2,RED);line(l,144,180,148,180,2,RED);
     }
 }
 static void artwork(lv_event_t *e) {

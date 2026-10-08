@@ -9,7 +9,7 @@
 
 - `images/cyber-badge/` contains actual 240 × 320 LVGL renders of the badge, employee terminal, game library, settings and Muyu. The Arasaka emblem is geometrically redrawn in `main/badge_ui.c`; preview status values are examples. Muyu retains the asset licenses above. The font generator also includes Chinese punctuation and badge/registry/profile text.
 
-- `font_badge_10.c` and `font_badge_28.c` are Noto Sans SC OFL subsets: 2,384 and 16,612 bitmap bytes. Regenerate with `python tools/generate_badge_fonts.py /path/to/NotoSansSC.ttf`. The 10 px font is supplementary terminal text; 28 px is used for headings and the configurable name. The 28 px subset also collects Chinese characters from the display-name field.
+- `font_badge_10.c` and `font_badge_28.c` are Noto Sans SC OFL subsets: 6,547 and 16,612 bitmap bytes. Regenerate with `python tools/generate_badge_fonts.py /path/to/NotoSansSC.ttf`. The 10 px font is supplementary terminal text and includes the Muse action hints; 28 px is used for headings and the configurable name. The 28 px subset also collects Chinese characters from the display-name field.
 - Arasaka branding references: [employee-card design](https://ko-fi.com/s/5aad91d702), [emblem reference](https://cyberpunk.fandom.com/fr/wiki/Arasaka). No marketplace artwork is downloaded or bundled. The geometric redraw references fictional branding whose rights are separate from the implementation license.
 
 - `images/cyber-badge/demo-{card,brand,logo}.rgb565` are synthetic host-render fixtures for the configured badge layout. Their example identity is fictional; the portrait is an original geometric illustration. Text uses the Noto Sans SC font credited above. These files are test inputs, not flashed user profiles.

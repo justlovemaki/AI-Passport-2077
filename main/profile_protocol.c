@@ -4,6 +4,8 @@
 #include "badge_power.h"
 #include "badge_network.h"
 #include "xiaozhi_app.h"
+#include "passport_muse.h"
+#include "muse_style.h"
 #include "yao_service.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
@@ -72,6 +74,17 @@ static bool number(cJSON *o,const char *key,size_t max,size_t *value) {
     if(!cJSON_IsNumber(v)||!isfinite(v->valuedouble)||v->valuedouble<0||v->valuedouble>max||floor(v->valuedouble)!=v->valuedouble) return false;
     *value=(size_t)v->valuedouble;return true;
 }
+static void muse_config_json(cJSON *reply) {
+    bool token_set=false,paired=false;char host[16]={0};uint16_t port=0;
+    passport_muse_config_status(&token_set,&paired);
+    passport_muse_proxy_config(host,sizeof(host),&port);
+    cJSON *muse=cJSON_AddObjectToObject(reply,"muse");
+    cJSON_AddBoolToObject(muse,"tokenSet",token_set);
+    cJSON_AddBoolToObject(muse,"paired",paired);
+    cJSON_AddStringToObject(muse,"proxyHost",host);
+    cJSON_AddNumberToObject(muse,"proxyPort",port);
+    cJSON_AddNumberToObject(muse,"style",muse_style_get());
+}
 static bool valid_profile(cJSON *p,unsigned version) {
     if(!cJSON_IsObject(p)) return false;
     const char *keys[]={"name","department","title","employeeId","signature"};
@@ -118,7 +131,7 @@ char *profile_protocol_request(const char *line,bool usb) {
     const char *sid=cJSON_IsString(session)?session->valuestring:"legacy";
     if(strlen(sid)>32)goto done;
     snprintf(client,sizeof(client),"%c:%s",usb?'U':'H',sid);
-    bool read_only=!strcmp(op->valuestring,"info")||!strcmp(op->valuestring,"read")||!strcmp(op->valuestring,"wifi_info")||!strcmp(op->valuestring,"wifi_scan_results")||!strcmp(op->valuestring,"badges")||!strcmp(op->valuestring,"xiaozhi_backend");
+    bool read_only=!strcmp(op->valuestring,"info")||!strcmp(op->valuestring,"read")||!strcmp(op->valuestring,"wifi_info")||!strcmp(op->valuestring,"wifi_scan_results")||!strcmp(op->valuestring,"badges")||!strcmp(op->valuestring,"xiaozhi_backend")||!strcmp(op->valuestring,"muse_config");
     if(!read_only)badge_power_activity();
     if(!read_only && transferring && strcmp(owner,client)) {e=ESP_ERR_INVALID_STATE;reason="upload_busy";goto done;}
     if(!strcmp(owner,client))last_activity=esp_timer_get_time();
@@ -154,6 +167,7 @@ char *profile_protocol_request(const char *line,bool usb) {
             cJSON_AddStringToObject(xz,"backendUrl",backend);
             cJSON_AddBoolToObject(xz,"backendCustom",backend_custom);
         }
+        muse_config_json(reply);
         cJSON_AddBoolToObject(reply,"profileReady",profile_store_ready());
         cJSON_AddBoolToObject(reply,"refreshPending",profile_store_refresh_pending());
         cJSON_AddNumberToObject(reply,"maxProfileVersion",4);
@@ -205,6 +219,16 @@ char *profile_protocol_request(const char *line,bool usb) {
     } else if(!strcmp(op->valuestring,"xiaozhi_backend_save")) {
         cJSON *url=cJSON_GetObjectItemCaseSensitive(q,"url");
         if(cJSON_IsString(url))e=demo_xiaozhi_save_backend(url->valuestring);
+    } else if(!strcmp(op->valuestring,"muse_config")) {
+        muse_config_json(reply);e=ESP_OK;
+    } else if(!strcmp(op->valuestring,"muse_config_save")) {
+        cJSON *token=cJSON_GetObjectItemCaseSensitive(q,"token");
+        cJSON *host=cJSON_GetObjectItemCaseSensitive(q,"proxyHost");size_t port=0,style=0;
+        if(cJSON_IsString(token)&&cJSON_IsString(host)&&number(q,"proxyPort",65535,&port)&&number(q,"style",MUSE_STYLE_COUNT-1,&style)){
+            e=passport_muse_save_config(token->valuestring,host->valuestring,(uint16_t)port);
+            if(e==ESP_OK&&!muse_style_set((unsigned)style))e=ESP_FAIL;
+            if(e==ESP_OK)muse_config_json(reply);
+        }
     } else if(!strcmp(op->valuestring,"wifi_scan")) {
         e=badge_network_scan();if(e==ESP_OK)badge_network_scan_json(reply);
     } else if(!strcmp(op->valuestring,"wifi_scan_results")) {

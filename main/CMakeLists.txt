@@ -28,7 +28,7 @@ endif()
 idf_component_register(
     SRCS "main.c" "badge_power.c" "badge_navigation.c" "badge_ui.c" "badge_theme.c" "badge_header.c" "game_registry.c"
          "muyu_app.c" "muyu_logic.c" "muyu_ui.c"
-         "shengbei_app.c"
+         "shengbei_app.c" "muse_app.cc" "muse_style.c"
          "yao_core.c" "yao_text_data.c" "yao_service.c" "yao_time.c" "yao_location.c" "yao_geo.c" "yao_app.c" "yao_ui.c"
          "xiaozhi_wake.c" "xiaozhi_app.cc" "xiaozhi_tools.c" "badge_control.c" "badge_reminder.c" "badge_alarms.c" "badge_alarm_service.c" "profile_edit.c" "profile_text.c" "badge_alert.c" "radio_tool_catalog.cc" "xiaozhi_wire.c" "xiaozhi_buffer.c" "xiaozhi_ui.c" "xiaozhi_style.c" "xiaozhi_face_assets.c" "xiaozhi_text.c" "font_xiaozhi_14.c"
          "radio_app.cc" "radio_player.cc" "radio_catalog.cc" "radio_directory.cc" "radio_presets.cc" "radio_http.cc" "radio_logic.cc" "radio_controls.c" "radio_status.cc" "radio_ui.cc" "font_radio_14.c"
@@ -37,7 +37,7 @@ idf_component_register(
          "font_badge_10.c" "font_badge_28.c"
          "profile_format.c" "profile_store.c" "profile_usb.c" "profile_protocol.c" "badge_network.c" "badge_network_rules.c"
     INCLUDE_DIRS "." "${voice_build_dir}"
-    REQUIRES lwip esp-sr bsp esp_pm esp_audio_codec esp_http_client esp_hw_support esp_timer nvs_flash esp_partition esp_driver_usb_serial_jtag json mbedtls esp_wifi esp_netif esp_event esp_http_server mqtt tcp_transport
+    REQUIRES lwip esp-sr bsp passport_muse esp_pm esp_audio_codec esp_http_client esp_hw_support esp_timer nvs_flash esp_partition esp_driver_usb_serial_jtag json mbedtls esp_wifi esp_netif esp_event esp_http_server mqtt tcp_transport
     EMBED_FILES "assets/configure.html.gz" "${voice_build_dir}/wake_model.bin"
 )
 

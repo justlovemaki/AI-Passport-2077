@@ -148,3 +148,4 @@ GitHub community documents: [CONTRIBUTING.md](../.github/CONTRIBUTING.md), [CODE
 
 - [Cyber Yao mini-app and XiaoZhi interpretation](cyber-yao.md)
 - Holy Cup oracle decision mini-app (`holy-cup`)
+- [Muse mini-app, secure setup, controls and acceptance](muse.md)

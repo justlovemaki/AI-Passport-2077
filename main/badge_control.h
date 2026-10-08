@@ -4,7 +4,7 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
-typedef enum { BC_MUYU, BC_RADIO, BC_VOICE, BC_PLAY_VOICE, BC_QR, BC_BADGE, BC_BRIGHTNESS, BC_XZ_VOLUME, BC_RADIO_PRESET, BC_REMINDER_SET, BC_REMINDER_CANCEL, BC_YAO, BC_PROFILE_EDIT, BC_HOME, BC_SHUTDOWN } badge_control_kind_t;
+typedef enum { BC_MUYU, BC_RADIO, BC_VOICE, BC_PLAY_VOICE, BC_QR, BC_BADGE, BC_BRIGHTNESS, BC_XZ_VOLUME, BC_RADIO_PRESET, BC_REMINDER_SET, BC_REMINDER_CANCEL, BC_YAO, BC_MUSE, BC_PROFILE_EDIT, BC_HOME, BC_SHUTDOWN } badge_control_kind_t;
 typedef struct {badge_control_kind_t kind;unsigned value;char text[129];int64_t when;unsigned minute,repeat,revision,field;} badge_control_command_t;
 typedef struct {unsigned brightness,mask,qr_mask,count,active;bool enabled;int last_result;int battery;char names[5][129];unsigned reminder_seconds;bool reminder_active;char reminder_text[97];} badge_control_status_t;
 /* Main task publishes navigation; the voice task never reads live LVGL state. */

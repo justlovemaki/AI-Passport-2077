@@ -7,4 +7,5 @@ typedef enum {
     BADGE_GAME_ART_RADIO,
     BADGE_GAME_ART_YAO,
     BADGE_GAME_ART_CUPS,
+    BADGE_GAME_ART_MUSE,
 } badge_game_art_t;

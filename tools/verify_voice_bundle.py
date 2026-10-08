@@ -22,8 +22,8 @@ def verify_voice_bundle(build_dir, images, partitions, merged):
     if zlib.crc32(bundle[:24])!=header_crc or zlib.crc32(bundle[4096:4096+size])!=crc:
         raise ValueError('Voice resource CRC mismatch')
     catalog=(build_dir/'voice_catalog.h').read_text()
-    if (f'#define VOICE_CATALOG_CRC {identity}u' not in catalog
-        or f'#define VOICE_CLIP_COUNT {clips}u' not in catalog
+    if (f'#define VOICE_PARTITION_CATALOG_CRC {identity}u' not in catalog
+        or f'#define VOICE_PARTITION_CLIP_COUNT {clips}u' not in catalog
         or f'#define VOICE_PAYLOAD_BYTES {size}u' not in catalog):
         raise ValueError('Firmware catalog and audio bundle disagree')
     print(f'Voice resources: PASS ({clips} clips / {size} bytes, both partitions verified)')

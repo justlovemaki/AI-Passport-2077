@@ -2,7 +2,7 @@
 
 ## Current selection — 2.6.18
 
-The user retained review IDs 4, 7, 8, 14, 19, 24, 25 and 29 from the 39 long-clip listening previews. Only the other 31 reviewed clips were removed; all shorter clips remain. The library now has 24 packs and 695 clips, totaling 3,293,101 audio bytes. This saves 977,379 bytes and leaves 1,028,179 bytes in the existing voice partitions after the 4,096-byte header. Partition offsets and capacities are unchanged; these savings do not enlarge the application partition. `assets/audio/voice-keychain/long-selection.json` records the decision and original hashes. Every retained resource is byte-identical. The previous source bundle and firmware/resource images were backed up outside the release. Update both voice images and the application together, with user partitions preserved. The following 1.9.1 section is historical.
+The user retained review IDs 4, 7, 8, 14, 19, 24, 25 and 29 from the 39 long-clip listening previews. Only the other 31 reviewed clips were removed; all shorter upstream clips remain. That selected library has 24 packs and 695 clips totaling 3,293,101 bytes; all retained files are byte-identical. The current catalog additionally includes a 14-clip High-Energy BGM pack embedded in the application, for 25 packs and 709 clips overall. The two voice partitions still contain only the selected upstream library and retain 110,675 bytes after the 4,096-byte header. `assets/audio/voice-keychain/long-selection.json` records the selection and original hashes. The following 1.9.1 section is historical.
 
 # Audio selection — 1.9.1
 

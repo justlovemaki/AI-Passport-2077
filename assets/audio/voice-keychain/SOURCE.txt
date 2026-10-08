@@ -5,3 +5,12 @@ Version 1.9.1 retains 24 packs / 726 clips after user-approved selection.
 selection.json records the 46 groups, representatives and 92 removed entries.
 Retained recordings are byte-identical to upstream; no re-encoding.
 Upstream code is MIT; libopus retains its COPYING. Media may carry separate third-party rights; source metadata is retained.
+
+Additional pack: 高燃BGM (final user-selected display and voice-control name)
+Source inputs: repository-root bgm/*.mp3, supplied by the user for this integration.
+Available inputs: 14 clips (the source note lists track 12, but no track-12 file was supplied).
+Conversion: ffmpeg/libopus, 16 kHz mono, 18 kbit/s CBR, audio mode, 20 ms frames;
+7.2 kHz low-pass, -16 LUFS normalization and -5 dB peak headroom are applied before encoding.
+Packets are stored with a 2-byte little-endian length prefix by tools/encode_voice_bgm.py.
+The original MP3 files are not copied into assets or embedded in firmware.
+These recordings are not relicensed by this repository; redistribution rights were not independently verified.

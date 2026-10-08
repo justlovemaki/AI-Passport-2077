@@ -30,10 +30,10 @@ static void xz_probe_reenter(void){
     // Home retains the mini-app selection; navigate from the actual selection.
     xz_probe_key(BSP_BTN_OK,BSP_BTN_CLICK);xz_probe_key(BSP_BTN_OK,BSP_BTN_CLICK);
     configASSERT(navigation.page==BADGE_GAMES);
-    for(unsigned i=0;i<4&&navigation.game_selected!=3;i++)xz_probe_key(BSP_BTN_DOWN,BSP_BTN_CLICK);
-    configASSERT(navigation.game_selected==3);xz_probe_key(BSP_BTN_OK,BSP_BTN_CLICK);
+    for(unsigned i=0;i<6&&navigation.game_selected!=4;i++)xz_probe_key(BSP_BTN_DOWN,BSP_BTN_CLICK);
+    configASSERT(navigation.game_selected==4);xz_probe_key(BSP_BTN_OK,BSP_BTN_CLICK);
     for(unsigned i=0;i<120&&!demo_xiaozhi_probe_ready();i++)vTaskDelay(pdMS_TO_TICKS(100));
-    configASSERT(demo_xiaozhi_probe_ready()&&navigation.page==BADGE_PLAYING&&navigation.game_selected==3);
+    configASSERT(demo_xiaozhi_probe_ready()&&navigation.page==BADGE_PLAYING&&navigation.game_selected==4);
 }
 static void xz_probe_volume_persistence(void){
     // Checkpoint survives an explicit MCU restart. Only test-owned keys are erased.
@@ -74,7 +74,7 @@ static void xz_probe_task(void *arg){
         atomic_store(&input_ready,true);
     }
     xz_probe_key(BSP_BTN_OK,BSP_BTN_CLICK);xz_probe_key(BSP_BTN_OK,BSP_BTN_CLICK);
-    for(unsigned i=0;i<3;i++)xz_probe_key(BSP_BTN_DOWN,BSP_BTN_CLICK);
+    for(unsigned i=0;i<4;i++)xz_probe_key(BSP_BTN_DOWN,BSP_BTN_CLICK);
     xz_probe_key(BSP_BTN_OK,BSP_BTN_CLICK);
     // The app's opt-in codec bench uses synthetic PCM only. Wait for it first.
     for(unsigned i=0;i<360&&!demo_xiaozhi_probe_ready();i++)vTaskDelay(pdMS_TO_TICKS(500));

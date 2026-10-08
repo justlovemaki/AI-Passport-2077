@@ -8,6 +8,9 @@
 #include "shengbei_app.h"
 #include "muse_app.h"
 const badge_game_t BADGE_GAMES_REGISTRY[] = {
+    {.id="muse", .description="语音输入 / 文字回复", .category="MUSE / VOICE AGENT", .artwork=BADGE_GAME_ART_MUSE,
+     .lifecycle={.name="Muse", .enter=demo_muse_enter, .exit=demo_muse_exit,
+        .key=demo_muse_key, .start=demo_muse_start, .stop=demo_muse_stop}},
     {.id="zen-muyu", .description="轻敲一下，放空片刻", .category="ZEN / RELAX", .artwork=BADGE_GAME_ART_MUYU,
      .lifecycle={.name="敲木鱼", .enter=demo_muyu_enter, .exit=demo_muyu_exit,
         .key=demo_muyu_key, .start=demo_muyu_start, .stop=demo_muyu_stop}},
@@ -23,9 +26,5 @@ const badge_game_t BADGE_GAMES_REGISTRY[] = {
     {.id="holy-cup", .description="默念问题 / 掷杯决策", .category="ORACLE / DECISION", .artwork=BADGE_GAME_ART_CUPS,
      .lifecycle={.name="圣杯决策", .enter=demo_shengbei_enter, .exit=demo_shengbei_exit,
         .key=demo_shengbei_key, .start=demo_shengbei_start, .stop=demo_shengbei_stop}},
-    {.id="muse", .description="语音输入 / 文字回复", .category="MUSE / VOICE AGENT", .artwork=BADGE_GAME_ART_MUSE,
-     .lifecycle={.name="Muse", .enter=demo_muse_enter, .exit=demo_muse_exit,
-        .key=demo_muse_key, .start=demo_muse_start, .stop=demo_muse_stop}},
-
 };
 const size_t BADGE_GAME_COUNT=sizeof(BADGE_GAMES_REGISTRY)/sizeof(BADGE_GAMES_REGISTRY[0]);

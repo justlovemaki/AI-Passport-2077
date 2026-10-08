@@ -3,7 +3,7 @@
 # Arasaka Personnel Badge · AI Passport
 
 > Hardware Target: FoloToy AI Passport (ESP32-C3 · 8 MB Flash · 240 × 320 ST7789 display · 3 physical buttons · ES8311 audio · CW2017 fuel gauge)  
-> Firmware Version: **v2.6.53**
+> Firmware Version: **v2.7.1**
 
 A Cyberpunk/Arasaka corporate-themed wearable badge firmware. Integrates **6 themed mini-apps**, **full XiaoZhi AI voice interaction with 19 MCP device control tools**, **252-pose vector emotion avatars**, **5 independent local badge profile slots**, and **offline Web serial/hotspot configuration**.
 
@@ -27,12 +27,12 @@ Transitions and selections provide a single 160 ms scanning-line response with z
        └───────┬───────┘   └───────────────┘   └───────┬───────┘
                │                                       │
      ┌─────────┴─────────┐                   ┌─────────┴─────────┐
-     │ 1. Zen Muyu       │                   │ · Mini Apps       │
-     │ 2. Voice Keychain │                   │ · Profile Config  │
-     │ 3. City Radio     │                   │ · My QR           │
-     │ 4. Cyber Yao      │                   │ · System Settings │
-     │ 5. Holy Cup       │                   │ · Return to Badge │
-     │ 6. Muse           │                   └───────────────────┘
+     │ 1. Muse           │                   │ · Mini Apps       │
+     │ 2. Zen Muyu       │                   │ · Profile Config  │
+     │ 3. Voice Keychain │                   │ · My QR           │
+     │ 4. City Radio     │                   │ · System Settings │
+     │ 5. Cyber Yao      │                   │ · Return to Badge │
+     │ 6. Holy Cup       │                   └───────────────────┘
      └───────────────────┘                   └───────────────────┘
 ```
 
@@ -42,12 +42,12 @@ All mini-apps are managed under the unified system lifecycle and adapt to the ac
 
 | Mini-App | ID | Description & Highlights | Key Controls |
 | --- | --- | --- | --- |
+| **Muse** | `muse` | Muse Gadget integration with runtime SDK-token/proxy configuration, phone pairing, push-to-talk voice notes, paged text replies, and an independently selected style built from the existing XiaoZhi vector-face elements. Credentials stay in local NVS; no token is compiled into firmware. | **Hold UP**: Record<br>**Release UP**: Send<br>**DOWN**: Cancel local wait<br>**OK**: Confirm/retry/next page<br>**Long DOWN**: Reset Muse pairing |
 | **Zen Muyu** | `zen-muyu` | Vector wooden-fish striking animation and sound, manual or auto-strike mode, 4 rhythm settings (30/60/80/120 bpm). Progress persists in NVS across reboots. | **OK**: Strike<br>**UP**: Toggle Auto/Manual<br>**DOWN**: Cycle tempo (30/60/80/120 bpm)<br>**Long UP**: Pause & save<br>**Long DOWN**: Cycle volume (0/20/40/60/80%) |
-| **Voice Keychain** | `voice-keychain` | 24 categories and 695 soundboard clips. Lightweight stream decoder with zero backlog on new playback; long titles scroll smoothly. | **UP/DOWN**: Navigate categories/clips<br>**OK**: Enter / Play<br>**Long UP**: Volume setting<br>**Long DOWN**: Stop playback |
+| **Voice Keychain** | `voice-keychain` | 25 categories and 709 clips, with the High-Energy BGM pack listed first and showing titles only. Lightweight stream decoder with zero backlog on new playback; long titles scroll smoothly. | **UP/DOWN**: Navigate categories/clips<br>**OK**: Enter / Play<br>**Long UP**: Volume setting<br>**Long DOWN**: Stop playback |
 | **City Radio** | `leo-radio` | Internet radio player streaming curated city stations over Wi-Fi, featuring channel resume and audio recovery. | **UP/DOWN**: Switch station<br>**OK**: Play / Pause<br>**Long UP**: Radio / network settings |
 | **Cyber Yao** | `cyber-yao` | I Ching divination based on CyberYAO. Throw 3 coins six times to cast hexagrams from bottom to top; scroll judgements and line texts; automatic true solar time calibration via IP geolocation; one-key XiaoZhi interpretation handoff. | **OK**: Throw coins / Request XiaoZhi reading<br>**UP/DOWN**: Scroll judgements & line text<br>**Long DOWN**: Recast / start over |
 | **Holy Cup** | `holy-cup` | Traditional decision-making oracle (Jiaobei). Cast two crescent wooden blocks for Shengbei (positive / proceed), Xiaobei (laughing / re-ask), or Yinbei (negative / defer). Rendered with vector shading and counter. | **OK**: Cast again<br>**Long OK**: Return to app list |
-| **Muse** | `muse` | Muse Gadget integration with runtime SDK-token/proxy configuration, phone pairing, push-to-talk voice notes, paged text replies, and an independently selected style built from the existing XiaoZhi vector-face elements. Credentials stay in local NVS; no token is compiled into firmware. | **Hold UP**: Record<br>**Release UP**: Send<br>**DOWN**: Cancel local wait<br>**OK**: Confirm/retry/next page<br>**Long DOWN**: Reset Muse pairing |
 
 > **Global Navigation Chooser**: Holding **OK** on any sub-page or mini-app opens a 3-way navigation chooser: **Previous Page / Home / Continue**, avoiding accidental exits or lost progress.
 

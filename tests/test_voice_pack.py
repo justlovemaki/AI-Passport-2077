@@ -20,9 +20,16 @@ class VoicePackTests(unittest.TestCase):
         assets=ROOT/'assets/audio/voice-keychain'
         index=json.loads((assets/'voice_index.json').read_text(encoding='utf-8'))
         manifest=json.loads((assets/'selection.json').read_text(encoding='utf-8'))
-        paths={f['path'] for p in index for f in p['files']}
-        self.assertEqual(len(index),24)
+        all_paths={f['path'] for p in index for f in p['files']}
+        paths={f['path'] for p in index if p.get('storage','partition')=='partition' for f in p['files']}
+        self.assertEqual(len(index),25)
+        self.assertEqual(len(all_paths),709)
         self.assertEqual(len(paths),695)
+        self.assertEqual(index[0]['dir'],'高燃BGM')
+        self.assertEqual([item['name'] for item in index[0]['files']],
+                         ['囚笼','Amazon压迫感','伏黑甚尔进行曲','Try','小紫万花筒进行曲',
+                          'Overturn反转进行曲','反派烧气救场','DeathIsNoMore','SubTitle',
+                          'MySunset','毁灭Destroy','MyWay','审判时刻','UNAMASFUNK2'])
         later=json.loads((assets/'long-selection.json').read_text(encoding='utf-8'))
         later_removed={x['path'] for x in later['removed']}
         self.assertEqual(len(manifest['groups']),46)
@@ -55,9 +62,10 @@ class VoicePackTests(unittest.TestCase):
         self.assertEqual(len(removed),31)
         self.assertTrue(all(x['seconds']>=15 for x in manifest['removed']))
         index=json.loads((assets/'voice_index.json').read_text(encoding='utf-8'))
-        paths={x['path'] for p in index for x in p['files']}
+        paths={x['path'] for p in index if p.get('storage','partition')=='partition' for x in p['files']}
+        all_paths={x['path'] for p in index for x in p['files']}
         self.assertEqual(paths,set(manifest['before_assets'])-removed)
-        self.assertEqual(paths,{p.relative_to(assets).as_posix() for p in assets.rglob('*.opus')})
+        self.assertEqual(all_paths,{p.relative_to(assets).as_posix() for p in assets.rglob('*.opus')})
         self.assertTrue({x['path'] for x in manifest['kept']}<=paths)
         self.assertEqual(sum(manifest['before_assets'][p]['bytes'] for p in removed),977379)
         for p in paths:
@@ -83,6 +91,11 @@ class VoicePackTests(unittest.TestCase):
             self.assertEqual(zlib.crc32(h[:24]), header_crc)
             self.assertEqual(zlib.crc32((a+b)[4096:4096+size]), crc)
             self.assertEqual(size, 3293101)
+            index=json.loads((ROOT/'assets/audio/voice-keychain/voice_index.json').read_text(encoding='utf-8'))
+            embedded=b''.join((ROOT/'assets/audio/voice-keychain'/item['path']).read_bytes()
+                              for group in index if group.get('storage')=='app' for item in group['files'])
+            self.assertEqual((d/'voice_bgm.bin').read_bytes(),embedded)
+            self.assertEqual(len(embedded),494158)
             parts=[SimpleNamespace(label='voice_data',offset=0x3d0000,size=pack.FIRST),SimpleNamespace(label='voice_tail',offset=0x750000,size=pack.TAIL)]
             images={'voice_data.bin':0x3d0000,'voice_tail.bin':0x750000}
             merged=bytearray(b'\xff'*0x7d0000)

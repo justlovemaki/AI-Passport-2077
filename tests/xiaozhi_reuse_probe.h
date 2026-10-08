@@ -48,7 +48,7 @@ static void reuse_probe_tick(void){
     }else if(phase==4){
         // Exercise the actual mini-app navigation release path, then idle wake.
         configASSERT(control_home());configASSERT(bsp_lvgl_lock(1000));
-        navigation.page=BADGE_GAMES;navigation.game_selected=1;render_shell();bsp_lvgl_unlock();
+        navigation.page=BADGE_GAMES;navigation.game_selected=2;render_shell();bsp_lvgl_unlock();
         input_event_t key={BSP_BTN_OK,BSP_BTN_CLICK};process_input(&key);
         configASSERT(on_voice_page());configASSERT(!demo_xiaozhi_reuse_probe(3));
         ESP_LOGI("reuse_bench","MINI_APP_RELEASE_PASS");phase=10;next=now+5000000;

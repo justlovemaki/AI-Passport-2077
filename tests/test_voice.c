@@ -31,7 +31,7 @@ int main(void) {
         for(int i=0;i<40;i++){voice_navigation_move(&n,-1);}assert(n.volume==0);
         assert(voice_navigation_back(&n)&&n.view==VOICE_CLIPS);assert(voice_navigation_back(&n)&&n.view==VOICE_PACKS);
     }
-    assert(clips==VOICE_CLIP_COUNT && clips==695);
+    assert(clips==VOICE_CLIP_COUNT && clips==709);
     uint32_t cursor=0;uint8_t packet[1500];
     data[0]=3;data[2]=1;data[3]=2;data[4]=3;
     assert(voice_stream_next(read_test,NULL,0,5,&cursor,packet)==3&&cursor==5&&packet[2]==3);
@@ -45,5 +45,5 @@ int main(void) {
     assert(voice_stream_span(VOICE_FIRST_BYTES-1,20,&part,&local,&count)&&part==0&&local==VOICE_FIRST_BYTES-1&&count==1);
     assert(voice_stream_span(VOICE_FIRST_BYTES,19,&part,&local,&count)&&part==1&&local==0&&count==19);
     assert(!voice_stream_span(VOICE_TOTAL_BYTES-1,2,&part,&local,&count));assert(!voice_stream_span(0xffffffff,1,&part,&local,&count));
-    puts("Voice navigation, all 695 selections and bounded packet reader: PASS");return 0;
+    puts("Voice navigation, all 709 selections and bounded packet reader: PASS");return 0;
 }

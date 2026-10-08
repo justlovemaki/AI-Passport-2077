@@ -32,6 +32,8 @@ static atomic_int volume,playing,battery,error_code;
 static voice_activity_t activity;
 typedef struct {unsigned clip,generation;} request_t;
 static const esp_partition_t *parts[2];
+extern const uint8_t voice_bgm_start[] asm("_binary_voice_bgm_bin_start");
+extern const uint8_t voice_bgm_end[] asm("_binary_voice_bgm_bin_end");
 static const int16_t silence[1600];
 static const char *errors[]={NULL,"正在启动","音效资源异常","音频启动失败","音效播放失败","音量保存失败"};
 static void refresh(lv_timer_t *t) {
@@ -45,14 +47,23 @@ static bool read_data(void *ctx,uint32_t offset,void *out,size_t size) {
         offset+=count;p+=count;size-=count;}
     return true;
 }
+static bool read_clip_data(void *ctx,uint32_t offset,void *out,size_t size) {
+    const voice_clip_t *clip=ctx;
+    if(!clip)return false;
+    if(clip->storage==VOICE_STORAGE_PARTITION)return read_data(NULL,offset,out,size);
+    if(clip->storage!=VOICE_STORAGE_APP||offset>VOICE_EMBEDDED_BYTES||size>VOICE_EMBEDDED_BYTES-offset)return false;
+    memcpy(out,voice_bgm_start+offset,size);return true;
+}
 static uint32_t u32(const uint8_t *p){return (uint32_t)p[0]|((uint32_t)p[1]<<8)|((uint32_t)p[2]<<16)|((uint32_t)p[3]<<24);}
 static bool resources(void) {
     parts[0]=esp_partition_find_first(ESP_PARTITION_TYPE_DATA,0x42,"voice_data");
     parts[1]=esp_partition_find_first(ESP_PARTITION_TYPE_DATA,0x43,"voice_tail");
     uint8_t h[28];
+    size_t bgm_bytes=(size_t)(voice_bgm_end-voice_bgm_start);
     return parts[0]&&parts[1]&&parts[0]->size==VOICE_FIRST_BYTES&&parts[1]->size==VOICE_TAIL_BYTES&&read_data(NULL,0,h,sizeof(h))&&
-        !memcmp(h,"VKP1",4)&&u32(h+4)==1&&u32(h+8)==VOICE_CLIP_COUNT&&u32(h+12)==VOICE_PAYLOAD_BYTES&&u32(h+16)==VOICE_CATALOG_CRC&&
-        esp_rom_crc32_le(0,h,24)==u32(h+24);
+        !memcmp(h,"VKP1",4)&&u32(h+4)==1&&u32(h+8)==VOICE_PARTITION_CLIP_COUNT&&u32(h+12)==VOICE_PAYLOAD_BYTES&&u32(h+16)==VOICE_PARTITION_CATALOG_CRC&&
+        esp_rom_crc32_le(0,h,24)==u32(h+24)&&bgm_bytes==VOICE_EMBEDDED_BYTES&&
+        esp_rom_crc32_le(0,voice_bgm_start,bgm_bytes)==VOICE_EMBEDDED_CRC;
 }
 
 #ifdef BADGE_XIAOZHI_DEVICE_PROBE
@@ -65,7 +76,7 @@ bool voice_probe_decode_all(bool (*cancelled)(void)){
     unsigned frames=0;
     for(unsigned i=0;ok&&i<VOICE_CLIP_COUNT;i++){
         uint32_t cursor=0;esp_opus_dec_reset(decoder);const voice_clip_t *clip=&voice_clips[i];
-        for(;;){if(cancelled()){ok=false;break;}int n=voice_stream_next(read_data,NULL,clip->offset,clip->length,&cursor,packet);if(!n)break;if(n<0){ok=false;break;}
+        for(;;){if(cancelled()){ok=false;break;}int n=voice_stream_next(read_clip_data,(void *)clip,clip->offset,clip->length,&cursor,packet);if(!n)break;if(n<0){ok=false;break;}
             esp_audio_dec_in_raw_t raw={.buffer=packet,.len=n};esp_audio_dec_out_frame_t output={.buffer=pcm,.len=1920};esp_audio_dec_info_t info={0};
             if(esp_opus_dec_decode(decoder,&raw,&output,&info)!=ESP_AUDIO_ERR_OK||raw.consumed!=(unsigned)n||!output.decoded_size||output.decoded_size>1920){ok=false;ESP_LOGE("xz_probe","Voice codec failed clip=%u frame=%u",i,frames);break;}frames++;if(frames%50==0)vTaskDelay(pdMS_TO_TICKS(1));
         }
@@ -114,7 +125,7 @@ static void worker(void *arg) {
 #endif
             esp_opus_dec_reset(decoder);atomic_store(&playing,(int)r.clip);atomic_store(&error_code,0);
             while(!atomic_load(&stopping)&&r.generation==atomic_load(&generation)) {
-                int bytes=voice_stream_next(read_data,NULL,clip->offset,clip->length,&cursor,packet);
+                int bytes=voice_stream_next(read_clip_data,(void *)clip,clip->offset,clip->length,&cursor,packet);
                 if(bytes==0)break;
                 if(bytes<0){failed=true;break;}
                 esp_audio_dec_in_raw_t raw={.buffer=packet,.len=(uint32_t)bytes};

@@ -62,7 +62,7 @@ int main(void){
     r=call("self.apps.open","{\"app\":\"zen-muyu\"}");assert(!error(r)&&ticket);uint32_t first=ticket;cJSON_Delete(r);assert(!badge_control_take(&c));
     r=call("self.badge.show_qr","{}");assert(error(r)&&!ticket);cJSON_Delete(r);
     badge_control_commit(first,false);assert(!badge_control_take(&c));
-    r=call("self.audio.play","{\"clip_id\":694}");assert(!error(r));first=ticket;cJSON_Delete(r);badge_control_commit(first,true);assert(badge_control_take(&c)&&c.kind==BC_PLAY_VOICE&&c.value==694);assert(!badge_control_take(&c));badge_control_finish(true);
+    r=call("self.audio.play","{\"clip_id\":708}");assert(!error(r));first=ticket;cJSON_Delete(r);badge_control_commit(first,true);assert(badge_control_take(&c)&&c.kind==BC_PLAY_VOICE&&c.value==708);assert(!badge_control_take(&c));badge_control_finish(true);
     r=call("self.badge.switch","{\"number\":2}");assert(!error(r));first=ticket;cJSON_Delete(r);badge_control_enable(false);badge_control_enable(true);badge_control_commit(first,true);assert(!badge_control_take(&c));
     const char *badnums[]={"{\"number\":0}","{\"number\":6}","{\"number\":3}","{\"number\":1.5}","{\"number\":\"2\"}","{\"number\":2,\"number\":1}"};
     for(unsigned i=0;i<sizeof(badnums)/sizeof(*badnums);i++){r=call("self.badge.switch",badnums[i]);assert(error(r)&&!ticket);cJSON_Delete(r);}
@@ -74,7 +74,7 @@ int main(void){
     r=call("self.display.set_brightness","{\"percent\":60}");assert(!error(r));first=ticket;cJSON_Delete(r);badge_control_commit(first,true);assert(badge_control_take(&c)&&c.kind==BC_BRIGHTNESS&&c.value==60);badge_control_finish(true);
     r=call("self.audio.search","{\"query\":\"\"}");assert(!error(r));o=text_object(r);assert(cJSON_GetObjectItemCaseSensitive(o,"total")->valueint==VOICE_CLIP_COUNT);assert(cJSON_GetArraySize(cJSON_GetObjectItemCaseSensitive(o,"matches"))==6);assert(cJSON_GetObjectItemCaseSensitive(o,"next_offset")->valueint==6);cJSON_Delete(o);cJSON_Delete(r);
     r=call("self.audio.search","{\"query\":\"__no_such_sound__\"}");o=text_object(r);assert(cJSON_GetObjectItemCaseSensitive(o,"total")->valueint==0);cJSON_Delete(o);cJSON_Delete(r);
-    r=call("self.audio.search","{\"query\":\"\",\"offset\":694}");o=text_object(r);assert(!cJSON_HasObjectItem(o,"next_offset"));cJSON_Delete(o);cJSON_Delete(r);
+    r=call("self.audio.search","{\"query\":\"\",\"offset\":708}");o=text_object(r);assert(!cJSON_HasObjectItem(o,"next_offset"));cJSON_Delete(o);cJSON_Delete(r);
     badge_control_publish(80,3,0,5,0);r=call("self.badge.show_qr","{}");assert(error(r));cJSON_Delete(r);
     r=call("unknown","{}");assert(error(r));cJSON_Delete(r);
     r=call("self.get_device_status","[]");assert(error(r));cJSON_Delete(r);
@@ -167,5 +167,5 @@ int main(void){
     }
     cJSON_free(filter_text);
     voice_navigation_t n;voice_navigation_init(&n);for(unsigned i=0;i<VOICE_CLIP_COUNT;i++){assert(voice_navigation_select(&n,i));assert(voice_navigation_ok(&n)==(int)i);}assert(!voice_navigation_select(&n,VOICE_CLIP_COUNT));
-    puts("Assistant tools PASS: discovery, real network status, schema errors, missing data, 695 clip selections, bounded search, deferred acknowledgement, failed sends, stale tickets and single execution");return 0;
+    puts("Assistant tools PASS: discovery, real network status, schema errors, missing data, 709 clip selections, bounded search, deferred acknowledgement, failed sends, stale tickets and single execution");return 0;
 }

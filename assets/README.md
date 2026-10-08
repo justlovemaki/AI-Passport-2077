@@ -39,9 +39,11 @@ Store reusable music and sound-effect sources in `music/`.
 
 ## Voice Keychain assets
 
-`audio/voice-keychain/` contains 726 raw Opus clips in 24 packs from Shinku-Chen/ai-passport, feature/voice-keychain, commit `71c45cabc1b2f3b73b4929d71cafd926ccbb11f5`. Audio is copied without re-encoding: 16 kHz mono, little-endian 2-byte packet lengths. `SOURCE.txt` records provenance. Upstream code is MIT; media rights are separate and are not relicensed as MIT. `tools/build_voice_pack.py` generates partition images and the catalog. Noto Sans SC 14px supplies 1071 glyphs via `tools/generate_voice_font.py`; see `fonts/OFL.txt`.
+`audio/voice-keychain/` contains 709 raw Opus clips in 25 packs. The retained upstream library contributes 695 byte-identical clips from Shinku-Chen/ai-passport, feature/voice-keychain, commit `71c45cabc1b2f3b73b4929d71cafd926ccbb11f5`. The first catalog pack is High-Energy BGM; it adds 14 user-supplied 15-second clips and displays song titles without artist suffixes, transcoded by `tools/encode_voice_bgm.py` to 16 kHz mono Opus at 18 kbit/s CBR with 20 ms frames, -16 LUFS normalization, -5 dB peak headroom, and a 7.2 kHz low-pass filter. Every packet has a 2-byte little-endian length prefix. `SOURCE.txt` records provenance and rights boundaries; media are not relicensed as MIT.
 
-1.9.1 retains one clip per user-approved group (46 groups). `audio/voice-keychain/selection.json` records retained and removed items; retained files are not re-encoded.
+`tools/build_voice_pack.py` keeps the 3,293,101-byte legacy library in the two voice partitions and embeds the 494,158-byte BGM pack in the application image, avoiding a partition-layout migration. The Noto Sans SC 14px shared UI font includes all displayed pack and track characters; see `fonts/OFL.txt`.
+
+1.9.1 retains one clip per user-approved group (46 groups). `audio/voice-keychain/selection.json` records retained and removed upstream items; retained files are not re-encoded.
 
 - [City Radio integration, MIT source and themed previews](../docs/leo-radio.md): provenance in `assets/radio/`; production LVGL renders in `assets/images/leo-radio/`.
 

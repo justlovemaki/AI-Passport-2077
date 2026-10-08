@@ -50,7 +50,7 @@ static void wake_probe_tick(void){
         {input_event_t key={BSP_BTN_OK,BSP_BTN_CLICK};process_input(&key);}
         configASSERT(navigation.page==BADGE_PLAYING);frames=xz_wake_probe_frames();phase=5;break;
     case 5:
-        if(app==1){
+        if(app==2){
             configASSERT(on_voice_page()&&voice_suspended&&xz_wake_probe_frames()>frames+5);
             ESP_LOGI("wake_bench","VOICE_LIST_IDLE_WAKE_PASS");
             unsigned clip=0;while(clip<VOICE_CLIP_COUNT&&voice_clips[clip].samples<16000*7)clip++;

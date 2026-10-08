@@ -37,9 +37,11 @@
 
 ## 音效钥匙扣资源
 
-`audio/voice-keychain/`：来自 Shinku-Chen/ai-passport 的 feature/voice-keychain 分支（提交 `71c45cabc1b2f3b73b4929d71cafd926ccbb11f5`），24 类、726 段原始 Opus 音效。未重新编码；16 kHz 单声道，2 字节小端长度前缀数据包。`SOURCE.txt` 记录来源；上游代码 MIT，音效素材权利独立于代码许可，未将其重新授权为 MIT。通过 `tools/build_voice_pack.py` 生成分区资源及索引。中文名称采用 Noto Sans SC 14px 子集（1071 字形，SIL OFL），由 `tools/generate_voice_font.py` 生成；字体许可见 `fonts/OFL.txt`。
+`audio/voice-keychain/` 现有 25 类、709 段原始 Opus 音频。原有素材中 695 段来自 Shinku-Chen/ai-passport 的 feature/voice-keychain 分支（提交 `71c45cabc1b2f3b73b4929d71cafd926ccbb11f5`），均保持字节不变。首个目录为“高燃BGM”，新增 14 段用户提供的 15 秒素材，界面曲目仅显示歌名；素材由 `tools/encode_voice_bgm.py` 转为 16 kHz 单声道、18 kbit/s CBR、20 ms 帧的 Opus，并执行 -16 LUFS 响度统一、-5 dB 峰值余量和 7.2 kHz 低通处理。所有数据包均使用 2 字节小端长度前缀。`SOURCE.txt` 记录来源和权利边界；音频素材未按 MIT 重新授权。
 
-1.9.1：按用户确认的 46 组各保留一段；`audio/voice-keychain/selection.json` 记录保留和移除项，保留文件未重新编码。
+`tools/build_voice_pack.py` 继续把原有 3,293,101 字节素材放入两个音效分区，并将 494,158 字节 BGM 嵌入应用镜像，因此不改变分区布局。共享 Noto Sans SC 14px UI 字库覆盖新增分组及曲目名称；字体许可见 `fonts/OFL.txt`。
+
+1.9.1：按用户确认的 46 组各保留一段；`audio/voice-keychain/selection.json` 记录原有素材的保留和移除项，保留文件未重新编码。
 
 - [城市电台集成、MIT 来源及主题预览](../docs/leo-radio.zh_CN.md)：源码来源 `assets/radio/`，实际 LVGL 预览 `assets/images/leo-radio/`。
 

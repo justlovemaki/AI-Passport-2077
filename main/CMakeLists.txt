@@ -38,7 +38,7 @@ idf_component_register(
          "profile_format.c" "profile_store.c" "profile_usb.c" "profile_protocol.c" "badge_network.c" "badge_network_rules.c"
     INCLUDE_DIRS "." "${voice_build_dir}"
     REQUIRES lwip esp-sr bsp passport_muse esp_pm esp_audio_codec esp_http_client esp_hw_support esp_timer nvs_flash esp_partition esp_driver_usb_serial_jtag json mbedtls esp_wifi esp_netif esp_event esp_http_server mqtt tcp_transport
-    EMBED_FILES "assets/configure.html.gz" "${voice_build_dir}/wake_model.bin"
+    EMBED_FILES "assets/configure.html.gz" "${voice_build_dir}/wake_model.bin" "${voice_build_dir}/voice_bgm.bin"
 )
 
 if(BADGE_YAO_DEVICE_PROBE)

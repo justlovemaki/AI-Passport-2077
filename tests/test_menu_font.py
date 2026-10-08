@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Check actual generated menu text against the committed font's cmap."""
+import json
 import re
 import sys
 from pathlib import Path
@@ -19,9 +20,13 @@ def coverage(font, text):
 generated = (Path(sys.argv[1]) / 'voice_catalog.h').read_text(encoding='utf-8')
 summary = re.search(r'#define VOICE_SUMMARY "([^"]+)"', generated)[1]
 coverage('font_muyu_14.c', '音效钥匙扣' + summary)
+voice_index = json.loads((ROOT / 'assets/audio/voice-keychain/voice_index.json').read_text(encoding='utf-8'))
+coverage('font_voice_14.c', ''.join(pack['dir'] + ''.join(item['name'] for item in pack['files']) for pack in voice_index))
 presets = (ROOT / 'main/radio_presets.cc').read_text(encoding='utf-8')
 coverage('font_radio_14.c', ''.join(re.findall(r'\{"([^"]+)"', presets)))
 registry = (ROOT / 'main/game_registry.c').read_text(encoding='utf-8')
+app_ids = re.findall(r'\.id="([^"]+)"', registry)
+assert app_ids and app_ids[0] == 'muse', app_ids
 shengbei = (ROOT / 'main/shengbei_app.c').read_text(encoding='utf-8')
 coverage('font_muyu_14.c', ''.join(re.findall(r'"([^"]*[\u3000-\u9fff][^"]*)"', registry + shengbei)))
 coverage('font_badge_28.c', '圣杯笑阴阳未投掷')

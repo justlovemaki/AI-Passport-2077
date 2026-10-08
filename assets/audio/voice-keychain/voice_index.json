@@ -1,7 +1,153 @@
 [
   {
-    "dir": "黄色袋鼠",
+    "dir": "高燃BGM",
     "dir_id": 0,
+    "dir_ascii": "dir24",
+    "storage": "app",
+    "encoding": {
+      "codec": "Opus",
+      "sample_rate": 16000,
+      "channels": 1,
+      "bitrate": "18k",
+      "vbr": false,
+      "frame_ms": 20,
+      "application": "audio",
+      "lowpass_hz": 7200,
+      "loudness_lufs": -16,
+      "true_peak_db": -5
+    },
+    "files": [
+      {
+        "name": "囚笼",
+        "src": "01_囚笼_北北昼_高潮15秒.mp3",
+        "source_sha256": "27172727cb159478606fbade90dd991f4bac253ac35b96a5cbf2492225ef7954",
+        "path": "dir24/clip00.opus",
+        "samples": 240320,
+        "duration": 15.02,
+        "compressed_bytes": 35297
+      },
+      {
+        "name": "Amazon压迫感",
+        "src": "02_Amazon压迫感_Reze_高潮15秒.mp3",
+        "source_sha256": "0244c5240fb58fb2df5181972c763a7a133c5322bc3d3d47ff513e305f425936",
+        "path": "dir24/clip01.opus",
+        "samples": 240320,
+        "duration": 15.02,
+        "compressed_bytes": 35297
+      },
+      {
+        "name": "伏黑甚尔进行曲",
+        "src": "03_伏黑甚尔进行曲_高潮15秒.mp3",
+        "source_sha256": "79da45701d1261412a5a81f26dc968734c75d46c93e34a91d8a75403f0f8e314",
+        "path": "dir24/clip02.opus",
+        "samples": 240320,
+        "duration": 15.02,
+        "compressed_bytes": 35297
+      },
+      {
+        "name": "Try",
+        "src": "04_Try_AndreJuss_高潮15秒.mp3",
+        "source_sha256": "728fc500b2bb49bffac03734c5a0ac4b5f3f9a0853078795597a5cf2b14b64f1",
+        "path": "dir24/clip03.opus",
+        "samples": 240320,
+        "duration": 15.02,
+        "compressed_bytes": 35297
+      },
+      {
+        "name": "小紫万花筒进行曲",
+        "src": "05_小紫万花筒进行曲_高潮15秒.mp3",
+        "source_sha256": "7a882a277b8bef9c317d5646948e4c2ab6ac5d0d98ad8f4b1f0854319c043a76",
+        "path": "dir24/clip04.opus",
+        "samples": 240320,
+        "duration": 15.02,
+        "compressed_bytes": 35297
+      },
+      {
+        "name": "Overturn反转进行曲",
+        "src": "06_Overturn反转进行曲_高潮15秒.mp3",
+        "source_sha256": "39095de1185e3dafdff08a19e450ada1af96c8ea703bacc18f73fcab86a55776",
+        "path": "dir24/clip05.opus",
+        "samples": 240320,
+        "duration": 15.02,
+        "compressed_bytes": 35297
+      },
+      {
+        "name": "反派烧气救场",
+        "src": "07_反派烧气救场_所长sama_高潮15秒.mp3",
+        "source_sha256": "1022a8c657eac60055062269d61903867cc1837b783228c6a265e02c5b779036",
+        "path": "dir24/clip06.opus",
+        "samples": 240320,
+        "duration": 15.02,
+        "compressed_bytes": 35297
+      },
+      {
+        "name": "DeathIsNoMore",
+        "src": "08_DeathIsNoMore_高潮15秒.mp3",
+        "source_sha256": "6b6def61725e65a2d4ee5f8572ab1369027a552de9867572283d63c708e3466b",
+        "path": "dir24/clip07.opus",
+        "samples": 240320,
+        "duration": 15.02,
+        "compressed_bytes": 35297
+      },
+      {
+        "name": "SubTitle",
+        "src": "09_SubTitle_高潮15秒.mp3",
+        "source_sha256": "1bb1ca79b7239c01a3e263768f3fe6dcffc9092b5ecba94c60ee60a187565c90",
+        "path": "dir24/clip08.opus",
+        "samples": 240320,
+        "duration": 15.02,
+        "compressed_bytes": 35297
+      },
+      {
+        "name": "MySunset",
+        "src": "10_MySunset_Fein_高潮15秒.mp3",
+        "source_sha256": "4cf699dd142e2a13495437e146c5458d8106d3665945d58b6785f85816efd20a",
+        "path": "dir24/clip09.opus",
+        "samples": 240320,
+        "duration": 15.02,
+        "compressed_bytes": 35297
+      },
+      {
+        "name": "毁灭Destroy",
+        "src": "11_毁灭Destroy_ErGuuu_高潮15秒.mp3",
+        "source_sha256": "d82586f5fd3e9dab6ee16e7013a751972105e4457e390182820c3e4066ca50ae",
+        "path": "dir24/clip10.opus",
+        "samples": 240320,
+        "duration": 15.02,
+        "compressed_bytes": 35297
+      },
+      {
+        "name": "MyWay",
+        "src": "13_MyWay_Veysigz_高潮15秒.mp3",
+        "source_sha256": "c5550fb4e29e268b966041f7a98c022d8487574703e67eb29bfa67516c1e4f0c",
+        "path": "dir24/clip11.opus",
+        "samples": 240320,
+        "duration": 15.02,
+        "compressed_bytes": 35297
+      },
+      {
+        "name": "审判时刻",
+        "src": "14_审判时刻_所长sama_高潮15秒.mp3",
+        "source_sha256": "d62a7f5d2c9972cbc6d0d4d796c530922563db441acdfc637b1b3cd8ebf7f13e",
+        "path": "dir24/clip12.opus",
+        "samples": 240320,
+        "duration": 15.02,
+        "compressed_bytes": 35297
+      },
+      {
+        "name": "UNAMASFUNK2",
+        "src": "15_UNAMASFUNK2_高潮15秒.mp3",
+        "source_sha256": "6b8f35d50991b5d5a005163b14c49df2b49ecce7d983fb68e6e06ad84f9cf81c",
+        "path": "dir24/clip13.opus",
+        "samples": 240320,
+        "duration": 15.02,
+        "compressed_bytes": 35297
+      }
+    ]
+  },
+  {
+    "dir": "黄色袋鼠",
+    "dir_id": 1,
     "dir_ascii": "dir00",
     "files": [
       {
@@ -280,7 +426,7 @@
   },
   {
     "dir": "MC",
-    "dir_id": 1,
+    "dir_id": 2,
     "dir_ascii": "dir01",
     "files": [
       {
@@ -375,7 +521,7 @@
   },
   {
     "dir": "meme猫",
-    "dir_id": 2,
+    "dir_id": 3,
     "dir_ascii": "dir02",
     "files": [
       {
@@ -686,7 +832,7 @@
   },
   {
     "dir": "刘华强",
-    "dir_id": 3,
+    "dir_id": 4,
     "dir_ascii": "dir03",
     "files": [
       {
@@ -917,7 +1063,7 @@
   },
   {
     "dir": "刘海柱",
-    "dir_id": 4,
+    "dir_id": 5,
     "dir_ascii": "dir04",
     "files": [
       {
@@ -1100,7 +1246,7 @@
   },
   {
     "dir": "卡丘米雪儿",
-    "dir_id": 5,
+    "dir_id": 6,
     "dir_ascii": "dir05",
     "files": [
       {
@@ -1363,7 +1509,7 @@
   },
   {
     "dir": "卢音",
-    "dir_id": 6,
+    "dir_id": 7,
     "dir_ascii": "dir06",
     "files": [
       {
@@ -1682,7 +1828,7 @@
   },
   {
     "dir": "印度阿三",
-    "dir_id": 7,
+    "dir_id": 8,
     "dir_ascii": "dir07",
     "files": [
       {
@@ -1809,7 +1955,7 @@
   },
   {
     "dir": "吉伊卡哇",
-    "dir_id": 8,
+    "dir_id": 9,
     "dir_ascii": "dir08",
     "files": [
       {
@@ -2216,7 +2362,7 @@
   },
   {
     "dir": "哈基米",
-    "dir_id": 9,
+    "dir_id": 10,
     "dir_ascii": "dir09",
     "files": [
       {
@@ -2431,7 +2577,7 @@
   },
   {
     "dir": "奶龙",
-    "dir_id": 10,
+    "dir_id": 11,
     "dir_ascii": "dir10",
     "files": [
       {
@@ -2774,7 +2920,7 @@
   },
   {
     "dir": "宝宝肚肚打雷",
-    "dir_id": 11,
+    "dir_id": 12,
     "dir_ascii": "dir11",
     "files": [
       {
@@ -2981,7 +3127,7 @@
   },
   {
     "dir": "小团团",
-    "dir_id": 12,
+    "dir_id": 13,
     "dir_ascii": "dir12",
     "files": [
       {
@@ -3300,7 +3446,7 @@
   },
   {
     "dir": "小明剑魔",
-    "dir_id": 13,
+    "dir_id": 14,
     "dir_ascii": "dir13",
     "files": [
       {
@@ -3667,7 +3813,7 @@
   },
   {
     "dir": "库里",
-    "dir_id": 14,
+    "dir_id": 15,
     "dir_ascii": "dir14",
     "files": [
       {
@@ -3866,7 +4012,7 @@
   },
   {
     "dir": "我要验牌法国赌神",
-    "dir_id": 15,
+    "dir_id": 16,
     "dir_ascii": "dir15",
     "files": [
       {
@@ -3945,7 +4091,7 @@
   },
   {
     "dir": "柚子厨",
-    "dir_id": 16,
+    "dir_id": 17,
     "dir_ascii": "dir16",
     "files": [
       {
@@ -4240,7 +4386,7 @@
   },
   {
     "dir": "牛来",
-    "dir_id": 17,
+    "dir_id": 18,
     "dir_ascii": "dir17",
     "files": [
       {
@@ -4263,7 +4409,7 @@
   },
   {
     "dir": "王世坚",
-    "dir_id": 18,
+    "dir_id": 19,
     "dir_ascii": "dir18",
     "files": [
       {
@@ -4590,7 +4736,7 @@
   },
   {
     "dir": "科比",
-    "dir_id": 19,
+    "dir_id": 20,
     "dir_ascii": "dir19",
     "files": [
       {
@@ -4661,7 +4807,7 @@
   },
   {
     "dir": "纸片人捷风",
-    "dir_id": 20,
+    "dir_id": 21,
     "dir_ascii": "dir20",
     "files": [
       {
@@ -4996,7 +5142,7 @@
   },
   {
     "dir": "金坷垃",
-    "dir_id": 21,
+    "dir_id": 22,
     "dir_ascii": "dir21",
     "files": [
       {
@@ -5283,7 +5429,7 @@
   },
   {
     "dir": "高松灯",
-    "dir_id": 22,
+    "dir_id": 23,
     "dir_ascii": "dir22",
     "files": [
       {
@@ -5498,7 +5644,7 @@
   },
   {
     "dir": "鸡乐",
-    "dir_id": 23,
+    "dir_id": 24,
     "dir_ascii": "dir23",
     "files": [
       {

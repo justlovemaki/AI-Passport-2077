@@ -2,6 +2,13 @@ cmake_minimum_required(VERSION 3.16)
 # Runtime Opus is shared by Voice Keychain and XiaoZhi through esp_audio_codec.
 # The vendored reference decoder remains available to offline bundle tools.
 set(EXCLUDE_COMPONENTS opus)
+# Keep ESP-IDF app metadata aligned with the UI/protocol version source.
+file(READ "${CMAKE_CURRENT_LIST_DIR}/main/badge_profile.h" BADGE_PROFILE_HEADER)
+string(REGEX MATCH "#define[ \t]+BADGE_VERSION[ \t]+\"([^\"]+)\"" _ "${BADGE_PROFILE_HEADER}")
+if(NOT CMAKE_MATCH_1)
+    message(FATAL_ERROR "BADGE_VERSION is missing from main/badge_profile.h")
+endif()
+set(PROJECT_VER "${CMAKE_MATCH_1}")
 include($ENV{IDF_PATH}/tools/cmake/project.cmake)
 
 project(FoloToy-AI-Passport)

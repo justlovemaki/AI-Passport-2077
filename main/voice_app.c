@@ -183,6 +183,12 @@ esp_err_t demo_voice_stop(void) {
     if(started){if(xSemaphoreTake(done,pdMS_TO_TICKS(3000))!=pdTRUE)return ESP_ERR_TIMEOUT;started=false;}
     if(queue){vQueueDelete(queue);queue=NULL;}if(done){vSemaphoreDelete(done);done=NULL;}return ESP_OK;
 }
+bool demo_voice_return_context(badge_return_context_t *context) {
+    if(!bsp_lvgl_lock(100))return false;
+    *context=(badge_return_context_t){.internal=voice_navigation_can_back(&navigation),
+        .detail="退出后停止播放",.resume="继续当前页面"};
+    bsp_lvgl_unlock();return true;
+}
 bool demo_voice_back(void) {
     if(!bsp_lvgl_lock(100))return true;
     bool consumed=voice_navigation_back(&navigation);cancel();refresh(NULL);bsp_lvgl_unlock();return consumed;

@@ -15,3 +15,6 @@ managed_components/
 
 __pycache__/
 backups/
+
+# Personal, encrypted configuration backups must not enter source archives.
+*.aipcfg

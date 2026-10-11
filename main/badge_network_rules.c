@@ -4,6 +4,7 @@ int badge_network_power_policy(int voice_policy,bool standby){
     return voice_policy==2?2:(voice_policy==1||standby)?1:0;
 }
 badge_setup_action_t badge_setup_tick(bool *seen,bool onboarding,bool active,uint32_t idle) {
+    (void)idle; /* Kept for API compatibility; ordinary setup no longer expires. */
     bool previous=*seen;*seen=onboarding;
     if(onboarding)return !previous&&!active?BADGE_SETUP_START:BADGE_SETUP_IDLE;
     if(previous)return BADGE_SETUP_EXTEND;

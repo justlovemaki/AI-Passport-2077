@@ -118,7 +118,7 @@ int main(int argc,char **argv) {
     finish_first_setup();
     render_terminal(); tick(20);
     FILE *terminal=fopen(argv[5],"wb");assert(terminal);fwrite(frame,sizeof(frame),1,terminal);fclose(terminal);
-    badge_return_menu_t rm={.open=true,.selected=1};badge_ui_return_menu(&rm);tick(20);
+    badge_return_menu_t rm={.open=true,.selected=1,.count=3,.plan={.source=BADGE_PLAYING,.destination=BADGE_GAMES}};badge_ui_return_menu(&rm);tick(20);
     FILE *return_view=fopen("build/ui-render/return-menu.rgb565","wb");assert(return_view);fwrite(frame,sizeof(frame),1,return_view);fclose(return_view);badge_ui_return_menu(NULL);tick(2);
     render_library(); tick(20);
     FILE *games=fopen(argv[3],"wb");assert(games);fwrite(frame,sizeof(frame),1,games);fclose(games);
@@ -213,7 +213,7 @@ int main(int argc,char **argv) {
         voice_ui_destroy();muyu_ui_create();muyu_ui_refresh(&s,86,true,true,true);tick(2);muyu_ui_destroy();
         voice_ui_create();vn.pack=cycle%VOICE_PACK_COUNT;vn.clip=voice_packs[vn.pack].count-1;vn.view=VOICE_CLIPS;
         voice_ui_render(&vn,-1,86,NULL);tick(2);
-        rm=(badge_return_menu_t){.open=true,.selected=cycle%3};badge_ui_return_menu(&rm);tick(2);badge_ui_return_menu(NULL);tick(2);
+        rm=(badge_return_menu_t){.open=true,.selected=cycle%3,.count=3,.plan={.source=BADGE_PLAYING,.destination=BADGE_GAMES}};badge_ui_return_menu(&rm);tick(2);badge_ui_return_menu(NULL);tick(2);
     }
     /* Compare freshly-created, identical themed pages, not a page that retains extra list styles. */
     voice_ui_destroy();badge_theme_set(NULL);voice_navigation_init(&vn);voice_ui_create();voice_ui_render(&vn,-1,86,NULL);tick(20);lv_mem_monitor(&m);

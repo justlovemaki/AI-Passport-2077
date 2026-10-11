@@ -8,6 +8,7 @@ bool voice_navigation_select(voice_navigation_t *n,unsigned clip);
 void voice_navigation_move(voice_navigation_t *n, int direction);
 /* Returns a clip index to play, or -1 for navigation only. */
 int voice_navigation_ok(voice_navigation_t *n);
+bool voice_navigation_can_back(const voice_navigation_t *n);
 bool voice_navigation_back(voice_navigation_t *n);
 void voice_navigation_volume(voice_navigation_t *n);
 unsigned voice_navigation_first(unsigned selected);

@@ -1,5 +1,6 @@
 #pragma once
 #include "demo.h"
+#include "badge_navigation.h"
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -18,6 +19,7 @@ bool demo_radio_control_probe(unsigned preset);
 #endif
 esp_err_t demo_radio_stop(void);
 bool demo_radio_back(void);
+bool demo_radio_return_context(badge_return_context_t *context);
 #ifdef __cplusplus
 }
 #endif

@@ -1,5 +1,5 @@
 <p align="right"><a href="voice-keychain.zh_CN.md">简体中文</a> · <strong>English</strong></p>
-> This is the original 1.8.0 integration/test record. For current counts and layout, see [1.9.1 audio selection](voice-pruning.md).
+> This is the original 1.8.0 integration/test record. For current counts and layout, see [1.9.1 audio selection](voice-pruning.md); current [return navigation](setup-navigation.md) returns internal views directly and keeps useful exit choices at the pack-list root.
 
 
 # Voice Keychain integration — 1.8.0

@@ -84,6 +84,7 @@ constexpr const char *OTA="https://api.tenclass.net/xiaozhi/ota/";
 constexpr unsigned MAX_MESSAGE=2048;
 std::atomic<bool> stopping{false},background_idle{false};
 std::atomic<unsigned> clicks{0},wanted_volume{40};
+std::atomic<xz_state_t> return_state{XZ_IDLE};
 SemaphoreHandle_t done;
 yao_record_t *launch_reading=nullptr;
 #ifdef BADGE_XIAOZHI_CONNECT_PROBE
@@ -196,7 +197,7 @@ public:
         connect_probe_state=(unsigned)s;
 #endif
         if(view.state!=s)ESP_LOGI(TAG,"State %u -> %u heap=%lu largest=%lu stack=%u",(unsigned)view.state,(unsigned)s,(unsigned long)esp_get_free_heap_size(),(unsigned long)heap_caps_get_largest_free_block(MALLOC_CAP_8BIT),(unsigned)uxTaskGetStackHighWaterMark(nullptr));
-        view.state=s;diagnostic_state=s;xz_text_copy(view.detail,sizeof(view.detail),detail);view.level=0;view.level_until_ms=0;if(s==XZ_LISTENING||s==XZ_READY){view.emotion=XZ_FACE_NEUTRAL;view.face_variant=0;xz_face_new_turn(&face_selector);}render(true);
+        return_state=s;view.state=s;diagnostic_state=s;xz_text_copy(view.detail,sizeof(view.detail),detail);view.level=0;view.level_until_ms=0;if(s==XZ_LISTENING||s==XZ_READY){view.emotion=XZ_FACE_NEUTRAL;view.face_variant=0;xz_face_new_turn(&face_selector);}render(true);
 #ifdef BADGE_XIAOZHI_DEVICE_PROBE
         ESP_LOGI("xz_probe","STATE=%u detail=%s code=%s free=%lu",(unsigned)s,detail,view.code,(unsigned long)esp_get_free_heap_size());
 #endif
@@ -998,6 +999,7 @@ void worker(void *arg){
 extern "C" unsigned demo_xiaozhi_connect_probe(unsigned f){return f==0?connect_probe_state.load():f==1?connect_probe_fault.load():f==2?connect_probe_catalog.load():connect_probe_frames.load();}
 #endif
 extern "C" void demo_xiaozhi_enter(){
+    return_state=XZ_IDLE;
     badge_network_status_t net{};badge_network_status(&net);
     if(net.active){
         badge_network_close_ap();
@@ -1099,6 +1101,13 @@ if(done){vSemaphoreDelete(done);done=nullptr;}yao_location_voice_active(false);r
 extern "C" bool demo_xiaozhi_set_volume(unsigned volume){if(!started||stopping||volume>100)return false;wanted_volume.store(volume);return true;}
 extern "C" void demo_xiaozhi_key(bsp_btn_t button,bsp_btn_ev_t event){if(!started||stopping||event!=BSP_BTN_CLICK)return;if(button==BSP_BTN_OK)clicks.fetch_add(1);else{unsigned v=wanted_volume.load();wanted_volume=button==BSP_BTN_UP?std::min(100u,v+10):v>10?v-10:0;}}
 
+extern "C" bool demo_xiaozhi_return_context(badge_return_context_t *context){
+    xz_state_t state=return_state.load();
+    *context={};
+    context->confirm=xz_return_confirmation(state);
+    context->detail="退出后结束当前对话";context->resume="继续对话";
+    return true;
+}
 extern "C" bool demo_xiaozhi_active(void){return started.load()&&!stopping.load();}
 extern "C" unsigned demo_xiaozhi_saved_volume(void){
     if(started)return wanted_volume.load();

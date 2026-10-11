@@ -16,8 +16,26 @@ extern bool demo_xiaozhi_conversation_probe_done(void);
 #ifdef BADGE_XIAOZHI_PLAYBACK_PROBE
 extern bool demo_xiaozhi_playback_probe_done(void);
 #endif
-static void xz_probe_key(bsp_btn_t b,bsp_btn_ev_t e){input_event_t event={b,e};configASSERT(xQueueSend(input_queue,&event,pdMS_TO_TICKS(1000))==pdTRUE);vTaskDelay(pdMS_TO_TICKS(650));}
-static void xz_probe_home(void){if(badge_power_screen_off()){badge_power_activity();for(unsigned i=0;i<30&&badge_power_screen_off();i++)vTaskDelay(pdMS_TO_TICKS(100));vTaskDelay(pdMS_TO_TICKS(500));}xz_probe_key(BSP_BTN_OK,BSP_BTN_LONG);xz_probe_key(BSP_BTN_DOWN,BSP_BTN_CLICK);xz_probe_key(BSP_BTN_OK,BSP_BTN_CLICK);vTaskDelay(pdMS_TO_TICKS(2000));}
+static void xz_probe_send(bsp_btn_t b,bsp_btn_ev_t e){input_event_t event={b,e};configASSERT(xQueueSend(input_queue,&event,pdMS_TO_TICKS(1000))==pdTRUE);}
+static void xz_probe_key(bsp_btn_t b,bsp_btn_ev_t e){
+    xz_probe_send(b,BSP_BTN_PRESS);
+    if(e==BSP_BTN_LONG)xz_probe_send(b,e);
+    xz_probe_send(b,BSP_BTN_RELEASE);
+    if(e!=BSP_BTN_LONG)xz_probe_send(b,e);
+    vTaskDelay(pdMS_TO_TICKS(650));
+}
+static void xz_probe_home(void){
+    if(badge_power_screen_off()){badge_power_activity();for(unsigned i=0;i<30&&badge_power_screen_off();i++)vTaskDelay(pdMS_TO_TICKS(100));vTaskDelay(pdMS_TO_TICKS(500));}
+    for(unsigned step=0;step<6&&navigation.page!=BADGE_HOME;step++){
+        xz_probe_key(BSP_BTN_OK,BSP_BTN_LONG);
+        if(return_menu.open){
+            unsigned home=return_menu.plan.destination==BADGE_HOME?0:1;
+            while(return_menu.selected!=home)xz_probe_key(BSP_BTN_DOWN,BSP_BTN_CLICK);
+            xz_probe_key(BSP_BTN_OK,BSP_BTN_CLICK);
+        }
+    }
+    configASSERT(navigation.page==BADGE_HOME);vTaskDelay(pdMS_TO_TICKS(2000));
+}
 #ifdef BADGE_XIAOZHI_CONVERSATION_PROBE
 #include "esp_system.h"
 #include "bsp_audio.h"

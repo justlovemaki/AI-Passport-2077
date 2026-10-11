@@ -20,11 +20,35 @@ typedef struct {
     unsigned brightness; /* 0..4 maps to 20..100 percent; never black out controls. */
     unsigned screen_timeout,timeout_selected;
 } badge_navigation_t;
-typedef struct {bool open;unsigned selected;} badge_return_menu_t;
+/* Read-only app query. A failed query must not be interpreted as an exit.
+ * Presentation strings must remain valid until the chooser closes (literals). */
+typedef struct {
+    bool internal, confirm;
+    const char *detail, *resume;
+} badge_return_context_t;
+typedef struct {
+    badge_page_t source, destination;
+    size_t game_selected;
+    bool internal, confirm;
+} badge_return_plan_t;
+typedef struct {
+    bool open, stopping;
+    unsigned selected, count;
+    badge_return_plan_t plan;
+    const char *title, *detail, *resume;
+} badge_return_menu_t;
 badge_input_t badge_ai_long_gesture(badge_page_t page,bool up,bool down,bool long_press);
-/* Long OK opens/cancels the chooser. A confirmed choice emits BACK/GO_HOME. */
-badge_input_t badge_return_menu_handle(badge_return_menu_t *menu,badge_page_t page,badge_input_t input);
-/* Long OK switches badges on Home; elsewhere it opens the return chooser. */
+/* Planning is side-effect free; internal app navigation precedes shell exit. */
+badge_page_t badge_navigation_parent(const badge_navigation_t *state);
+badge_return_plan_t badge_return_plan(const badge_navigation_t *state,
+                                      const badge_return_context_t *context);
+/* Only app/session boundaries with distinct destinations or a real interruption
+ * need a chooser. A stale plan cancels without executing a navigation action. */
+badge_input_t badge_return_menu_handle(badge_return_menu_t *menu,
+                                      const badge_return_plan_t *plan,badge_input_t input);
+/* Reopen a failed exit with Continue selected; never claim playback resumed. */
+void badge_return_menu_failed(badge_return_menu_t *menu,const badge_return_plan_t *plan);
+/* Long OK switches badges on Home; elsewhere it requests a contextual return. */
 badge_input_t badge_ok_gesture(badge_page_t page,bool long_press,bool click);
 badge_input_t badge_up_gesture(badge_page_t page,bool configured,bool long_press,bool click);
 /* The caller resolves the app ID; invalid/missing apps never change selection. */

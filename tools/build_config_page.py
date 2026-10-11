@@ -3,9 +3,12 @@ import gzip,base64
 root=Path(__file__).resolve().parent.parent
 folder=root/'configure'
 scripts=[]
-for name in ['profile-core.js','vendor/jsQR.js','vendor/qrcodegen.js','app.js']:
+for name in ['profile-core.js','vendor/jsQR.js','vendor/qrcodegen.js','vendor/config-crypto.js','config-backup.js','app.js']:
     source=(folder/name).read_text(encoding='utf-8').replace('</script','<\\/script')
     if name=='vendor/jsQR.js': source='/*\n'+(folder/'vendor/jsQR.LICENSE').read_text(encoding='utf-8').replace('*/','* /')+'\n*/\n'+source
+    if name=='vendor/config-crypto.js':
+        notices='\n\n'.join((folder/'vendor'/license).read_text(encoding='utf-8').replace('*/','* /') for license in ['noble-ciphers.LICENSE','noble-hashes.LICENSE'])
+        source='/*\n'+notices+'\n*/\n'+source
     scripts.append('<script>\n'+source+'\n</script>')
 fonts=[]
 for name,family,weight in [('Orbitron','BadgeDisplay',700),('Caveat','BadgeSignature',600),('NotoSansSC-brand','BadgeBrand',700)]:

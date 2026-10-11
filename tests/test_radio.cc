@@ -29,11 +29,13 @@ int main(){
     assert(entries==1&&oversized.done&&!oversized.failed);
     RadioJsonObjects truncated;for(char ch:std::string("[{"))truncated.feed(ch);assert(!truncated.done);
     RadioJsonObjects malformed;for(char ch:std::string("[{},]"))malformed.feed(ch);assert(malformed.failed);
-    radio_controls_t c;radio_controls_init(&c,40,0);assert(!radio_controls_back(&c));
+    radio_controls_t c;radio_controls_init(&c,40,0);assert(!radio_controls_can_back(&c));assert(!radio_controls_back(&c));
     assert(radio_controls_move(&c,-1)==RADIO_CHANNEL_UP);assert(radio_controls_move(&c,1)==RADIO_CHANNEL_DOWN);assert(radio_controls_ok(&c)==RADIO_TOGGLE);
     radio_controls_settings(&c);radio_controls_ok(&c);assert(c.page==RADIO_VOLUME);
     for(int i=0;i<30;i++){radio_controls_move(&c,-1);}assert(c.volume==100);
     for(int i=0;i<30;i++){radio_controls_move(&c,1);}assert(c.volume==0);
+    radio_controls_t before=c;
+    assert(radio_controls_can_back(&c)&&c.page==before.page&&c.volume==before.volume&&c.selected==before.selected);
     assert(radio_controls_back(&c));assert(c.page==RADIO_SETTINGS);radio_controls_move(&c,1);radio_controls_ok(&c);
     assert(c.page==RADIO_CITY);radio_controls_move(&c,-1);assert(c.selected==7);assert(radio_controls_ok(&c)==RADIO_CITY_CHANGED&&c.city==7&&c.page==RADIO_MAIN);
     radio_controls_settings(&c);radio_controls_move(&c,1);radio_controls_move(&c,1);radio_controls_ok(&c);

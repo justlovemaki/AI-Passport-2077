@@ -13,7 +13,8 @@ Two workflows validate pull requests: `.github/workflows/static-checks.yml` and
 - **Static checks** (`static-checks.yml`): validates English-default bilingual
   Markdown, relative links, full-SHA Actions, issue forms, the dependency lock,
   conflict markers, and likely sensitive data; then runs `actionlint` and host
-  tests. It runs on every pull request.
+  tests, including browser configuration encryption/import failure cases. It
+  runs on every pull request.
 - **Firmware checks** (`firmware-checks.yml`): runs
   `./tools/validate.sh --firmware` for ESP32-C3 in a fresh isolated
   build/configuration directory, verifies the build and the merged `0x0` image

@@ -7,6 +7,10 @@
 #include <stdio.h>
 #include <string.h>
 int main(void){
+    for(unsigned state=XZ_IDLE;state<=XZ_ERROR;state++)
+        assert(xz_return_confirmation((xz_state_t)state)==
+               (state==XZ_CONNECTING||state==XZ_READY||state==XZ_LISTENING||
+                state==XZ_THINKING||state==XZ_SPEAKING));
     assert(!xz_session_ready(false,false));assert(!xz_session_ready(true,false));
     assert(!xz_session_ready(false,true));assert(xz_session_ready(true,true));
     /* Replay observed server ordering: initialize -> hello -> list -> call. */

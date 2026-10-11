@@ -1,7 +1,8 @@
 # Keep the embedded hotspot page and standalone editor identical.
 set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
-    "../configure/page.html" "../configure/profile-core.js" "../configure/app.js"
-    "../configure/vendor/jsQR.js" "../configure/vendor/qrcodegen.js" "../configure/vendor/jsQR.LICENSE"
+    "../configure/page.html" "../configure/profile-core.js" "../configure/config-backup.js" "../configure/app.js"
+    "../configure/vendor/jsQR.js" "../configure/vendor/qrcodegen.js" "../configure/vendor/config-crypto.js"
+    "../configure/vendor/jsQR.LICENSE" "../configure/vendor/noble-ciphers.LICENSE" "../configure/vendor/noble-hashes.LICENSE"
     "../tools/build_config_page.py" "../assets/fonts/Orbitron-latin.woff2" "../assets/fonts/Caveat-latin.woff2")
 execute_process(COMMAND "${PYTHON}" "${CMAKE_CURRENT_LIST_DIR}/../tools/build_config_page.py"
     RESULT_VARIABLE config_page_result)

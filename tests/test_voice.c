@@ -15,7 +15,7 @@ int main(void) {
     voice_activity_complete(&activity,2);assert(!voice_activity_busy(&activity));
     voice_activity_submit(&activity,3);assert(voice_activity_busy(&activity));
     voice_activity_complete(&activity,3);assert(!voice_activity_busy(&activity));
-    voice_navigation_t n;voice_navigation_init(&n);assert(!voice_navigation_back(&n));
+    voice_navigation_t n;voice_navigation_init(&n);assert(!voice_navigation_can_back(&n));assert(!voice_navigation_back(&n));
     voice_navigation_move(&n,-1);assert(n.pack==VOICE_PACK_COUNT-1);voice_navigation_move(&n,1);assert(n.pack==0);
     unsigned clips=0;
     for(unsigned p=0;p<VOICE_PACK_COUNT;p++){
@@ -29,7 +29,11 @@ int main(void) {
         voice_navigation_volume(&n);assert(n.view==VOICE_VOLUME);voice_navigation_volume(&n);assert(n.previous==VOICE_CLIPS);
         for(int i=0;i<40;i++){voice_navigation_move(&n,1);}assert(n.volume==100);
         for(int i=0;i<40;i++){voice_navigation_move(&n,-1);}assert(n.volume==0);
-        assert(voice_navigation_back(&n)&&n.view==VOICE_CLIPS);assert(voice_navigation_back(&n)&&n.view==VOICE_PACKS);
+        voice_navigation_t before=n;
+        assert(voice_navigation_can_back(&n)&&!memcmp(&n,&before,sizeof(n)));
+        assert(voice_navigation_back(&n)&&n.view==VOICE_CLIPS);
+        assert(voice_navigation_can_back(&n));assert(voice_navigation_back(&n)&&n.view==VOICE_PACKS);
+        assert(!voice_navigation_can_back(&n));
     }
     assert(clips==VOICE_CLIP_COUNT && clips==709);
     uint32_t cursor=0;uint8_t packet[1500];

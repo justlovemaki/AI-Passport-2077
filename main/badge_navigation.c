@@ -1,5 +1,4 @@
 #include "badge_navigation.h"
-#include "badge_network.h"
 #include "xiaozhi_style.h"
 #include "badge_power_logic.h"
 badge_input_t badge_ai_long_gesture(badge_page_t page,bool up,bool down,bool long_press){
@@ -23,13 +22,63 @@ badge_action_t badge_navigation_quick_launch(badge_navigation_t *s,size_t index)
     s->game_selected=index;s->playing_return=BADGE_HOME;s->page=BADGE_PLAYING;
     return BADGE_LAUNCH;
 }
-badge_input_t badge_return_menu_handle(badge_return_menu_t *m,badge_page_t page,badge_input_t input) {
-    if(!m->open){if(input==BADGE_BACK&&page!=BADGE_HOME){m->open=true;m->selected=0;return BADGE_NONE;}return input;}
+badge_page_t badge_navigation_parent(const badge_navigation_t *s) {
+    switch(s->page) {
+    case BADGE_HOME: case BADGE_TERMINAL: case BADGE_CARDS: return BADGE_HOME;
+    case BADGE_PLAYING: return s->playing_return;
+    case BADGE_AI_CHAT: return s->ai_return;
+    case BADGE_AI_SETTINGS: return s->ai_settings_return;
+    case BADGE_AI_VOLUME_PAGE: return BADGE_AI_SETTINGS;
+    case BADGE_DISPLAY_SETTINGS: case BADGE_SLEEP_SETTINGS:
+    case BADGE_ABOUT_SETTINGS: return BADGE_SETTINGS;
+    case BADGE_SETTINGS: return s->settings_return;
+    case BADGE_GAMES: return s->games_return;
+    case BADGE_WIFI: return s->wifi_return;
+    case BADGE_QR: return s->qr_return;
+    default: return BADGE_TERMINAL;
+    }
+}
+badge_return_plan_t badge_return_plan(const badge_navigation_t *s,
+                                      const badge_return_context_t *context) {
+    return (badge_return_plan_t){.source=s->page,.destination=badge_navigation_parent(s),
+        .game_selected=(s->page==BADGE_PLAYING||(s->page==BADGE_AI_CHAT&&s->ai_return==BADGE_PLAYING))?s->game_selected:0,
+        .internal=context&&context->internal,.confirm=context&&context->confirm};
+}
+static bool same_return(const badge_return_plan_t *a,const badge_return_plan_t *b) {
+    /* A request finishing while the chooser is open does not change its route.
+     * Keep the conservative interruption warning until the chooser closes. */
+    return a->source==b->source&&a->destination==b->destination&&
+        a->game_selected==b->game_selected&&a->internal==b->internal;
+}
+badge_input_t badge_return_menu_handle(badge_return_menu_t *m,
+                                      const badge_return_plan_t *plan,badge_input_t input) {
+    if(!m->open) {
+        bool boundary=plan->source==BADGE_PLAYING||plan->source==BADGE_AI_CHAT;
+        if(input==BADGE_BACK&&boundary&&!plan->internal&&
+           (plan->destination!=BADGE_HOME||plan->confirm)) {
+            *m=(badge_return_menu_t){.open=true,.plan=*plan,
+                .count=plan->destination==BADGE_HOME?2:3};
+            m->selected=plan->confirm?m->count-1:0;
+            return BADGE_NONE;
+        }
+        return input;
+    }
+    if(!same_return(&m->plan,plan)){m->open=false;return BADGE_NONE;}
+    if(m->stopping)return BADGE_NONE;
     if(input==BADGE_BACK){m->open=false;return BADGE_NONE;}
-    if(input==BADGE_UP)m->selected=(m->selected+2)%3;
-    if(input==BADGE_DOWN)m->selected=(m->selected+1)%3;
-    if(input==BADGE_OK){m->open=false;return m->selected==0?BADGE_BACK:m->selected==1?BADGE_GO_HOME:BADGE_NONE;}
+    if(input==BADGE_UP)m->selected=(m->selected+m->count-1)%m->count;
+    if(input==BADGE_DOWN)m->selected=(m->selected+1)%m->count;
+    if(input==BADGE_OK) {
+        m->open=false;
+        if(m->selected==m->count-1)return BADGE_NONE;
+        return m->selected==0?BADGE_BACK:BADGE_GO_HOME;
+    }
     return BADGE_NONE;
+}
+void badge_return_menu_failed(badge_return_menu_t *m,const badge_return_plan_t *plan) {
+    m->open=true;m->stopping=false;m->plan=*plan;
+    m->count=plan->destination==BADGE_HOME?2:3;m->selected=m->count-1;
+    m->detail="退出未完成，请重试";m->resume="留在当前页面";
 }
 void badge_navigation_badges(badge_navigation_t *s,unsigned count,unsigned active,unsigned mask) {
     s->badge_count=count?count:1;s->active_badge=active<count?active:0;s->badge_mask=mask;
@@ -128,7 +177,7 @@ badge_action_t badge_navigation_handle(badge_navigation_t *s,badge_input_t input
         if(input==BADGE_OK) {
             static const badge_page_t destinations[]={BADGE_AI_SETTINGS,BADGE_GAMES,BADGE_QR,BADGE_SETTINGS,BADGE_HOME};
             s->page=destinations[s->home_selected];
-            if(s->page==BADGE_AI_SETTINGS){s->ai_settings_return=BADGE_TERMINAL;s->ai_selected=0;badge_network_wake_probe();}
+            if(s->page==BADGE_AI_SETTINGS){s->ai_settings_return=BADGE_TERMINAL;s->ai_selected=0;}
             if(s->page==BADGE_GAMES)s->games_return=BADGE_TERMINAL;
             if(s->page==BADGE_SETTINGS)s->settings_return=BADGE_TERMINAL;
             if(s->page==BADGE_QR)s->qr_return=BADGE_TERMINAL;

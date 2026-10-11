@@ -2,7 +2,7 @@
 
 [English](README.md) | 简体中文
 
-当前分支应用：[荒坂员工牌](../README.zh_CN.md) · [验证报告](muyu-validation.zh_CN.md)。
+当前分支应用：[荒坂员工牌](../README.zh_CN.md) · [验证报告](muyu-validation.zh_CN.md) · [配置加密导入导出](config-backup.zh_CN.md)。
 
 FoloToy AI Passport 是一个开放式可穿戴 AI 硬件，本仓库是这款 AI 硬件的开发基线。它不只展示"板子能运行什么"，还把开发应用所需的**硬件事实、稳定接口、资源边界、参考实现和验收方法**放在同一仓库中。
 

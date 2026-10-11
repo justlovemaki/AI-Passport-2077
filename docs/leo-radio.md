@@ -14,7 +14,9 @@ Open badge home → OK → Mini Apps → City Radio. With saved Wi-Fi connected,
 | OK | Pause / resume |
 | Long Up | Open radio settings |
 | Long Down | Stop playback |
-| Long OK | Choose Previous Page, Badge Home or Continue |
+| Long OK | Settings sub-pages return one level directly; at the root choose Mini Apps, Badge Home or Continue when the destinations differ |
+
+The exit chooser explains that leaving stops playback; opening or cancelling it does not stop the stream. A direct Home-only launch exits without duplicate destinations. See [contextual return rules](setup-navigation.md).
 
 Settings include volume (0–100%, steps of 5), automatic location or seven preset cities, a 15/30/60/90-minute stop timer. Up/down selects, OK confirms. The timer stops radio playback without powering off the badge. Volume, selected city and station are remembered in the independent `badge_radio_v1` NVS namespace; the timer resets on exit. Set Wi-Fi through the existing USB or hotspot configuration page. No separate radio account or setup page is required.
 

@@ -3,7 +3,7 @@
 # Arasaka Personnel Badge · AI Passport
 
 > Hardware Target: FoloToy AI Passport (ESP32-C3 · 8 MB Flash · 240 × 320 ST7789 display · 3 physical buttons · ES8311 audio · CW2017 fuel gauge)  
-> Firmware Version: **v2.7.1**
+> Firmware Version: **v2.7.2**
 
 A Cyberpunk/Arasaka corporate-themed wearable badge firmware. Integrates **6 themed mini-apps**, **full XiaoZhi AI voice interaction with 19 MCP device control tools**, **252-pose vector emotion avatars**, **5 independent local badge profile slots**, and **offline Web serial/hotspot configuration**.
 
@@ -47,9 +47,9 @@ All mini-apps are managed under the unified system lifecycle and adapt to the ac
 | **Voice Keychain** | `voice-keychain` | 25 categories and 709 clips, with the High-Energy BGM pack listed first and showing titles only. Lightweight stream decoder with zero backlog on new playback; long titles scroll smoothly. | **UP/DOWN**: Navigate categories/clips<br>**OK**: Enter / Play<br>**Long UP**: Volume setting<br>**Long DOWN**: Stop playback |
 | **City Radio** | `leo-radio` | Internet radio player streaming curated city stations over Wi-Fi, featuring channel resume and audio recovery. | **UP/DOWN**: Switch station<br>**OK**: Play / Pause<br>**Long UP**: Radio / network settings |
 | **Cyber Yao** | `cyber-yao` | I Ching divination based on CyberYAO. Throw 3 coins six times to cast hexagrams from bottom to top; scroll judgements and line texts; automatic true solar time calibration via IP geolocation; one-key XiaoZhi interpretation handoff. | **OK**: Throw coins / Request XiaoZhi reading<br>**UP/DOWN**: Scroll judgements & line text<br>**Long DOWN**: Recast / start over |
-| **Holy Cup** | `holy-cup` | Traditional decision-making oracle (Jiaobei). Cast two crescent wooden blocks for Shengbei (positive / proceed), Xiaobei (laughing / re-ask), or Yinbei (negative / defer). Rendered with vector shading and counter. | **OK**: Cast again<br>**Long OK**: Return to app list |
+| **Holy Cup** | `holy-cup` | Traditional decision-making oracle (Jiaobei). Cast two crescent wooden blocks for Shengbei (positive / proceed), Xiaobei (laughing / re-ask), or Yinbei (negative / defer). Rendered with vector shading and counter. | **OK**: Cast again<br>**Long OK**: Request app exit |
 
-> **Global Navigation Chooser**: Holding **OK** on any sub-page or mini-app opens a 3-way navigation chooser: **Previous Page / Home / Continue**, avoiding accidental exits or lost progress.
+> **Contextual return**: Hold **OK** to return directly from system and app sub-pages. At an app/session exit, keep a chooser for **the named entry page / Badge Home / Continue** when the destinations differ. Duplicate badge destinations merge; Muse recording/local wait and active XiaoZhi sessions default to Continue. See [return rules and acceptance](docs/setup-navigation.md).
 
 ---
 
@@ -90,6 +90,7 @@ Store **5 independent identity profiles** directly in flash, each keeping its ow
   - **Phone Hotspot Setup**: When away from a PC, open **System → Network** and press OK to turn on the configuration hotspot. Connect with a smartphone and browse `http://192.168.4.1` for the full setup UI.
   - **Smart Cropping**: Upload photos and QR codes up to 10 MB; images are cropped to 72 × 88 avatars and sharp monochrome QR bitmaps automatically.
   - **Muse Setup**: Save an owner-provided Muse SDK token and optional LAN HTTP proxy without returning the token to the browser. Changing the token clears old Muse pairing; changing only the proxy preserves it.
+- **Encrypted Configuration Import/Export**: Section 07 of the USB/hotspot configuration page backs up saved NVS preferences/credentials and all five committed badge profiles to a password-protected `.aipcfg` file. Import validates compatible firmware, warns before cross-device credential/identity migration, downloads an encrypted recovery snapshot first, restores profile transactions and verifies NVS bytes before reboot. Credentials remain hidden from ordinary form fields. See [usage and recovery](docs/config-backup.md).
 
 ---
 
@@ -104,13 +105,14 @@ Store **5 independent identity profiles** directly in flash, each keeping its ow
 | | Long OK | Open Badge Profile switcher (1–5) |
 | **Terminal Menu** | UP / DOWN | Select item (Mini-Apps, Profile, QR, Settings, Home) |
 | | Short OK | Enter selected page |
-| | Long OK | Open Return Chooser (Previous / Home / Continue) |
+| | Long OK | Return directly to Badge Home |
 | **Personal QR** | DOWN / OK | Dismiss QR and return |
 | **XiaoZhi AI** | Short OK | Start / Pause / Interrupt conversation |
 | | UP / DOWN | Adjust XiaoZhi volume (±10%) |
 | | Long UP | Cycle & save avatar face style |
 | | Long DOWN | Open XiaoZhi AI settings |
-| **Sub-pages** | Long OK | Open Return Chooser (Previous / Home / Continue) |
+| **Sub-pages** | Long OK | Return directly one level, preserving each setting's save/cancel rule |
+| **App/session exit** | Long OK | Named entry / Badge Home / Continue when useful; confirm meaningful interruption |
 
 ---
 

@@ -48,10 +48,15 @@ run_static_checks() {
     "${test_dir}/test_yao_location"
     node tests/test_yao_config.cjs
     node tests/test_muse_config_ui.cjs
+    node tests/test_config_backup_ui.cjs
+    node tests/test_config_backup_flow.cjs
     "${CC:-cc}" -std=c11 -Wall -Wextra -Werror -Imain \
         tests/test_badge_navigation.c main/badge_navigation.c \
         -o "${test_dir}/test_badge_navigation"
     "${test_dir}/test_badge_navigation"
+    "${CC:-cc}" -std=c11 -Wall -Wextra -Werror -Imain \
+        tests/test_badge_return_input.c -o "${test_dir}/test_badge_return_input"
+    "${test_dir}/test_badge_return_input"
     "${CC:-cc}" -std=c11 -Wall -Wextra -Werror -Imain -Itests/profile_stubs \
         tests/test_profile_store.c main/profile_store.c main/profile_format.c \
         -o "${test_dir}/test_profile_store"

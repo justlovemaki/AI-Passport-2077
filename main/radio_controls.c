@@ -27,6 +27,7 @@ radio_action_t radio_controls_ok(radio_controls_t *c){
     if(c->page==RADIO_TIMER){c->timer=c->selected;c->page=RADIO_MAIN;return RADIO_TIMER_CHANGED;}
     c->page=RADIO_SETTINGS;c->selected=0;return RADIO_NOTHING;
 }
+bool radio_controls_can_back(const radio_controls_t *c){return c->page!=RADIO_MAIN;}
 bool radio_controls_back(radio_controls_t *c){
     if(c->page==RADIO_MAIN)return false;
     c->page=c->page==RADIO_SETTINGS?RADIO_MAIN:RADIO_SETTINGS;c->selected=0;return true;

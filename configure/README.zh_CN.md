@@ -12,9 +12,17 @@ Muse 配置接受设备主人的 SDK Token 和可选 IPv4 HTTP CONNECT 代理。
 
 品牌文字栅格为 148 × 44，图标为 32 × 32，头像为 72 × 88，资料卡为 208 × 148 RGB565。二维码在本机识别，以整数像素模块和留白重新生成，再次识别并对比原始字节后才接受。192 × 192 区域内不能保证每模块至少两个像素的复杂二维码会被拒绝。二维码始终使用黑白对比，不随主题变色；仍需用手机在实物屏幕上验证微信扫码。
 
+## 完整配置导入/导出
+
+第 07 节可通过 Web Serial 或手机热点，把已保存的 NVS 偏好/凭证及五张已提交工牌导出为
+仅在本机生成的密码加密 `.aipcfg` 文件。导入允许另一台安装兼容固件的工牌，复制凭证、配对和云端身份前会警告，并先下载目标
+设备恢复快照；普通表单仍不显示密码/Token。网页尚未保存的编辑不在备份范围内。
+加密与中断恢复见[配置导入导出](../docs/config-backup.zh_CN.md)。
+
 ## 第三方库
 
 - jsQR 1.4.0 来自官方 npm 包，上游 https://github.com/cozmo/jsQR，Apache-2.0；见 `vendor/jsQR.LICENSE`。
+- `@noble/ciphers` 2.4.0 与 `@noble/hashes` 2.4.0，上游 https://github.com/paulmillr/noble-ciphers 和 https://github.com/paulmillr/noble-hashes，MIT；只在本地 HTTP 热点无法使用 WebCrypto 时作为 AES-GCM/PBKDF2/SHA-256 回退。见 `vendor/config-crypto.SOURCE.txt` 及两个许可文件。
 - Project Nayuki 二维码生成器，上游 https://github.com/nayuki/QR-Code-generator/blob/master/typescript-javascript/qrcodegen.ts，获取日期 2026-09-15，MIT；见 `vendor/qrcodegen.LICENSE`。使用 TypeScript 5.9.3 编译，两个库均使用 Terser 5.44.0 压缩，并内嵌到页面。
 - `assets/images/cyber-badge/test-qr.bin` 编码的是公开测试地址 `https://example.com/test-contact`，不含真实联系方式。
 

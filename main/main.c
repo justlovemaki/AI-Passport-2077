@@ -1,5 +1,6 @@
 /* Cyber badge shell. Input task owns navigation; button callbacks only enqueue. */
 #include "badge_navigation.h"
+#include "badge_return_input.h"
 #include "badge_power.h"
 #include "badge_power_logic.h"
 #include "badge_profile.h"
@@ -66,6 +67,34 @@ static bool voice_idle_wake(void){
     return voice_suspended;
 }
 static badge_return_menu_t return_menu;
+static badge_return_input_t return_input;
+static char return_title[64];
+static bool query_return(badge_return_context_t *context) {
+    *context=(badge_return_context_t){.detail="退出后结束当前应用",.resume="继续当前页面"};
+    if(navigation.page==BADGE_AI_CHAT)return demo_xiaozhi_return_context(context);
+    if(navigation.page==BADGE_PLAYING) {
+        const badge_game_t *game=&BADGE_GAMES_REGISTRY[navigation.game_selected];
+        return !game->return_context||game->return_context(context);
+    }
+    return true;
+}
+static void return_presentation(const badge_return_plan_t *plan,const badge_return_context_t *context) {
+    const char *name=plan->source==BADGE_AI_CHAT?"小智对话":
+        plan->source==BADGE_PLAYING?BADGE_GAMES_REGISTRY[plan->game_selected].lifecycle.name:"当前页面";
+    snprintf(return_title,sizeof(return_title),"离开%s",name);
+    return_menu.title=return_title;return_menu.detail=context->detail;return_menu.resume=context->resume;
+}
+static void return_feedback(const badge_return_plan_t *plan,bool failed) {
+    return_menu.plan=*plan;return_menu.open=true;
+    if(failed)badge_return_menu_failed(&return_menu,plan);
+    else {return_menu.stopping=true;return_menu.detail="正在退出，请稍候";}
+    if(bsp_lvgl_lock(1000)){badge_ui_return_menu(&return_menu);bsp_lvgl_unlock();}
+}
+static void return_dismiss(void) {
+    /* Caller holds the LVGL lock; also consume pre-transition held-key tails. */
+    badge_return_input_barrier(&return_input,3);return_input.app_held=0;
+    badge_ui_return_menu(NULL);return_menu=(badge_return_menu_t){0};
+}
 static nvs_handle_t settings;
 static bool settings_open, storage_ok, battery_ok, buttons_ok;
 static int battery=-1;
@@ -169,7 +198,7 @@ static bool return_to_yao(void){
      * the RAM held by the parked AI connection. Fresh locations keep reuse. */
     if(!yao_location_get().configured)demo_xiaozhi_release_connection();
     if(!bsp_lvgl_lock(1000))return false;
-    demo_xiaozhi_exit();navigation.page=BADGE_PLAYING;demo_yao_enter();
+    return_dismiss();demo_xiaozhi_exit();navigation.page=BADGE_PLAYING;demo_yao_enter();
     bsp_lvgl_unlock();demo_yao_start();return true;
 }
 static void interpret_yao(const yao_record_t *record){
@@ -197,22 +226,46 @@ static void process_input(const input_event_t *input) {
     ESP_LOGI("xz_probe","INPUT button=%u event=%u asleep=%u consumed=%u",input->button,input->event,asleep,consumed);
 #endif
     if(consumed)return;
-    if(reminder.ringing){if(input->button==BSP_BTN_OK&&(input->event==BSP_BTN_CLICK||input->event==BSP_BTN_DOUBLE))reminder_closing=true;return;}
+    unsigned button=(unsigned)input->button;
+    bool release=input->event==BSP_BTN_RELEASE;
+    bool blocked=badge_return_input_event(&return_input,button,
+        input->event==BSP_BTN_PRESS,release);
+    /* Only releases of app-owned presses cross a modal barrier. In particular,
+     * Muse must see an earlier UP release; modal UP presses never start capture. */
+    if(release&&badge_return_input_app_release(&return_input,button)) {
+        if((return_menu.open||blocked)&&navigation.page==BADGE_PLAYING)
+            BADGE_GAMES_REGISTRY[navigation.game_selected].lifecycle.key(input->button,input->event);
+    }
+    if(blocked)return;
+    if(reminder.ringing){if(input->button==BSP_BTN_OK&&(input->event==BSP_BTN_CLICK||input->event==BSP_BTN_DOUBLE)){reminder_closing=true;badge_return_input_barrier(&return_input,button);}return;}
     badge_input_t key=translate(input);
+    badge_return_context_t context={0};
+    if((key==BADGE_BACK||return_menu.open)&&!query_return(&context))return;
+    badge_return_plan_t plan=badge_return_plan(&navigation,&context);
     badge_return_menu_t prior_menu=return_menu;
-    key=badge_return_menu_handle(&return_menu,navigation.page,key);
+    key=badge_return_menu_handle(&return_menu,&plan,key);
     if(prior_menu.open||return_menu.open) {
-        if(!bsp_lvgl_lock(1000)){return_menu=prior_menu;return;}
-        badge_ui_return_menu(return_menu.open?&return_menu:NULL);bsp_lvgl_unlock();
+        if(!prior_menu.open)return_presentation(&plan,&context);
+        bool changed=prior_menu.open!=return_menu.open||prior_menu.selected!=return_menu.selected;
+        if(changed) {
+            if(!bsp_lvgl_lock(1000)){return_menu=prior_menu;return;}
+            badge_ui_return_menu(return_menu.open?&return_menu:NULL);bsp_lvgl_unlock();
+        }
+        if(prior_menu.open!=return_menu.open)
+            badge_return_input_barrier(&return_input,button);
         if(key==BADGE_NONE)return;
     }
-    if(navigation.page==BADGE_PLAYING && key==BADGE_BACK) {
+    if(key==BADGE_BACK||key==BADGE_GO_HOME)
+        badge_return_input_barrier(&return_input,button);
+    if(navigation.page==BADGE_PLAYING && key==BADGE_BACK && plan.internal) {
         const badge_game_t *game=&BADGE_GAMES_REGISTRY[navigation.game_selected];
-        if(game->back && game->back()) return;
+        if(game->back)game->back();
+        return; /* A failed internal back must never become an application exit. */
     }
     if(navigation.page==BADGE_AI_CHAT&&key!=BADGE_BACK&&key!=BADGE_GO_HOME&&key!=BADGE_AI_OPEN_SETTINGS&&key!=BADGE_AI_CYCLE_STYLE){demo_xiaozhi_key(input->button,input->event);return;}
     if(navigation.page==BADGE_PLAYING && key!=BADGE_BACK && key!=BADGE_GO_HOME) {
         if(on_voice_page()&&input->event!=BSP_BTN_PRESS&&input->event!=BSP_BTN_RELEASE&&!resume_voice_audio())return;
+        if(input->event==BSP_BTN_PRESS)badge_return_input_app_press(&return_input,button);
         BADGE_GAMES_REGISTRY[navigation.game_selected].lifecycle.key(input->button,input->event);
         if(!strcmp(BADGE_GAMES_REGISTRY[navigation.game_selected].id,"cyber-yao")){
             yao_record_t record;if(demo_yao_take_interpretation(&record))interpret_yao(&record);
@@ -223,6 +276,11 @@ static void process_input(const input_event_t *input) {
     badge_action_t action=BADGE_IDLE;
     action=badge_navigation_handle(&navigation,key);
     if(action==BADGE_IDLE) return;
+    bool leaving=(action==BADGE_STOP||action==BADGE_AI_STOP)&&
+                 (key==BADGE_BACK||key==BADGE_GO_HOME);
+    if(leaving){if(!prior_menu.open)return_presentation(&plan,&context);return_feedback(&plan,false);}
+    if(navigation.page==BADGE_AI_SETTINGS&&previous.page!=BADGE_AI_SETTINGS)
+        badge_network_wake_probe();
     if(action==BADGE_SLEEP_SAVE){
         esp_err_t e=settings_open?nvs_set_u8(settings,"screen_timeout",navigation.screen_timeout):ESP_ERR_INVALID_STATE;
         if(e==ESP_OK)e=nvs_commit(settings);
@@ -238,9 +296,9 @@ static void process_input(const input_event_t *input) {
     if(action==BADGE_AI_STYLE&&navigation.page==BADGE_AI_CHAT)return;
     if(action==BADGE_LAUNCH||action==BADGE_AI_START){if(xz_wake_stop()!=ESP_OK){navigation=previous;return;}}
     if(action==BADGE_AI_STOP&&navigation.page==BADGE_PLAYING){
-        navigation=previous;if(!return_to_yao())navigation=previous;return;
+        navigation=previous;if(!return_to_yao()){navigation=previous;if(leaving)return_feedback(&plan,true);}return;
     }
-    if(action==BADGE_AI_STOP){if(demo_xiaozhi_stop()!=ESP_OK){navigation=previous;return;}}
+    if(action==BADGE_AI_STOP){if(demo_xiaozhi_stop()!=ESP_OK){navigation=previous;if(leaving)return_feedback(&plan,true);return;}}
     if(action==BADGE_LAUNCH||action==BADGE_WIFI_START||action==BADGE_WIFI_TOGGLE)demo_xiaozhi_release_connection();
     if(action==BADGE_WIFI_START){badge_network_start_setup();return;}
     if(navigation.page==BADGE_WIFI&&previous.page!=BADGE_WIFI){badge_network_start_setup();}
@@ -258,16 +316,18 @@ static void process_input(const input_event_t *input) {
     }
     if(action==BADGE_WIFI_TOGGLE) {badge_network_toggle();return;}
     if(action==BADGE_STOP) {
-        if(xz_wake_stop()!=ESP_OK){navigation=previous;return;}
+        if(xz_wake_stop()!=ESP_OK){navigation=previous;return_feedback(&plan,true);return;}
         const demo_entry_t *g=&BADGE_GAMES_REGISTRY[navigation.game_selected].lifecycle;
         esp_err_t err=g->stop?g->stop():ESP_OK;
         if(err!=ESP_OK) {
             navigation=previous;
-            ESP_LOGE(TAG,"Game stop failed, long OK retries: %s",esp_err_to_name(err));
+            return_feedback(&plan,true);
+            ESP_LOGE(TAG,"Game stop failed, retry from exit chooser: %s",esp_err_to_name(err));
             return;
         }
     }
-    if(!bsp_lvgl_lock(1000)) {navigation=previous; return;}
+    if(!bsp_lvgl_lock(1000)) {navigation=previous;if(leaving)return_feedback(&plan,true);return;}
+    if(leaving)return_dismiss();
     if(action==BADGE_AI_START){
         badge_network_close_ap();
         badge_ui_destroy();demo_xiaozhi_enter();bsp_lvgl_unlock();esp_err_t e=demo_xiaozhi_start();ESP_LOGI(TAG,"AI start: %s",esp_err_to_name(e));return;
@@ -310,7 +370,7 @@ static bool control_home(void) {
         BADGE_GAMES_REGISTRY[navigation.game_selected].lifecycle.exit();
         voice_suspended=false;badge_ui_create();
     }
-    badge_ui_return_menu(NULL);return_menu=(badge_return_menu_t){0};
+    return_dismiss();
     navigation.page=BADGE_HOME;render_shell();bsp_lvgl_unlock();return true;
 }
 static void shutdown_step(const char *step,esp_err_t e){
@@ -388,7 +448,7 @@ static bool execute_control_impl(badge_control_command_t c) {
     if(!bsp_lvgl_lock(1000))goto resume_conversation;
     if(!profile_protocol_lock()){bsp_lvgl_unlock();goto resume_conversation;}
     load_profile_ui();profile_seen=profile_store_revision();profile_store_displayed(profile_seen);profile_protocol_unlock();
-    badge_ui_return_menu(NULL);return_menu=(badge_return_menu_t){0};
+    return_dismiss();
     demo_xiaozhi_exit();
     if(target){
         navigation.game_selected=index;navigation.playing_return=BADGE_HOME;navigation.page=BADGE_PLAYING;
@@ -490,7 +550,7 @@ static void input_worker(void *arg) {
         if(atomic_load(&input_ready))badge_power_display_tick(reminder.ringing,false);
         if(atomic_load(&input_ready)){
             publish_control();badge_control_command_t command;
-            if(badge_control_take(&command)){badge_power_activity();badge_power_display_tick(true,true);bool ok=!badge_power_screen_off()&&execute_control(command);badge_control_finish(ok);ESP_LOGI(TAG,"Assistant action=%u value=%u result=%s",command.kind,command.value,ok?"OK":"FAILED");}
+            if(badge_control_take(&command)){badge_power_activity();badge_power_display_tick(true,true);bool ok=!return_menu.open&&!badge_power_screen_off()&&execute_control(command);badge_control_finish(ok);ESP_LOGI(TAG,"Assistant action=%u value=%u result=%s",command.kind,command.value,ok?"OK":"FAILED");}
         }
         if(atomic_load(&input_ready)){
             if(reminder_closing&&badge_alert_dismiss()&&badge_alarm_service_ack(reminder_current_id)){
@@ -520,20 +580,20 @@ static void input_worker(void *arg) {
         if(atomic_load(&input_ready))cloud_probe_tick();
 #endif
         if(atomic_load(&input_ready)){
-            if(navigation.page==BADGE_AI_CHAT&&xz_wake_enabled()&&demo_xiaozhi_idle()){
+            if(!return_menu.open&&navigation.page==BADGE_AI_CHAT&&xz_wake_enabled()&&demo_xiaozhi_idle()){
                 badge_page_t origin=navigation.ai_return;
                 if(origin==BADGE_PLAYING){return_to_yao();}
                 else if(control_home()&&bsp_lvgl_lock(1000)){navigation.page=origin;render_shell();bsp_lvgl_unlock();}
             }
-            bool voice_quiet=voice_idle_wake();
-            bool quiet=(navigation.page!=BADGE_PLAYING||voice_quiet)&&navigation.page!=BADGE_AI_CHAT&&!reminder.ringing;
+            bool voice_quiet=!return_menu.open&&voice_idle_wake();
+            bool quiet=!return_menu.open&&(navigation.page!=BADGE_PLAYING||voice_quiet)&&navigation.page!=BADGE_AI_CHAT&&!reminder.ringing;
             if(quiet&&xz_wake_take_trigger()){
                 badge_power_display_tick(true,true);
                 if(badge_power_screen_off())continue;
                 badge_page_t origin=voice_quiet?navigation.playing_return:navigation.page;
                 bool stopped=voice_quiet?control_home():xz_wake_stop()==ESP_OK;
                 if(stopped&&bsp_lvgl_lock(1000)){
-                    navigation.ai_return=origin;navigation.page=BADGE_AI_CHAT;badge_ui_return_menu(NULL);return_menu=(badge_return_menu_t){0};
+                    navigation.ai_return=origin;navigation.page=BADGE_AI_CHAT;return_dismiss();
                     badge_ui_destroy();demo_xiaozhi_enter();bsp_lvgl_unlock();
                     esp_err_t start_result=demo_xiaozhi_start();ESP_LOGI(TAG,"Voice wake AI start: %s",esp_err_to_name(start_result));
                 }

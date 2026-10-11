@@ -27,7 +27,9 @@ Community pairing has physical confirmation and encrypted provisioning but no ma
 | Short OK | Confirm pairing, retry an error, or advance reply pages |
 | Hold DOWN on ready/reply | Cycle and persist Muse's independent face style |
 | Hold DOWN on pairing/error | Clear Muse account pairing while preserving the SDK token, system Wi-Fi, and badge profiles |
-| Hold OK | Open the global return chooser |
+| Hold OK | Choose the entry page, Badge Home or Continue when useful; recording/local waiting requires confirmation with Continue selected |
+
+[Contextual return](setup-navigation.md) merges duplicate Home destinations. An open chooser does not pause the worker or cancel submitted cloud work. Releases of UP presses delivered before the chooser still reach Muse once; new chooser UP presses do not record. Confirmed exit cancels local recording/waiting, but a previously submitted cloud task may continue.
 
 The app owns microphone, BLE pairing, TLS/Noise buffers, and its worker only while open. Exit joins the worker, closes BLE and network sessions, releases large parser buffers, suspends the codec, and then deletes the LVGL screen.
 

@@ -1,6 +1,7 @@
 #include "profile_protocol.h"
 #include "profile_store.h"
 #include "profile_edit.h"
+#include "badge_profile.h"
 #include "badge_power.h"
 #include "badge_network.h"
 #include "xiaozhi_app.h"
@@ -9,11 +10,19 @@
 #include "yao_service.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
+#include "freertos/task.h"
 #include "esp_timer.h"
+#include "esp_partition.h"
+#include "esp_system.h"
+#include "esp_mac.h"
 #include "nvs.h"
+#include "nvs_flash.h"
 #include "cJSON.h"
 #include "mbedtls/base64.h"
+#include "mbedtls/sha256.h"
+#include "mbedtls/platform_util.h"
 #include <stdlib.h>
+#include <stdio.h>
 #include <string.h>
 #include <math.h>
 #include <ctype.h>
@@ -22,9 +31,42 @@ static uint8_t binary[768];
 static char encoded[1025],owner[40];
 static bool transferring;
 static int64_t last_activity;
+enum {CONFIG_IDLE,CONFIG_EXPORT,CONFIG_IMPORT,CONFIG_RESTARTING};
+#define CONFIG_NVS_BYTES 0x6000u
+static unsigned config_mode;
+static uint8_t *config_buffer;
+static size_t config_received;
+static uint8_t config_digest[32];
+static char config_owner[40];
+static esp_timer_handle_t config_restart_timer;
+static const esp_partition_t *config_nvs(void){
+    const esp_partition_t *p=esp_partition_find_first(ESP_PARTITION_TYPE_DATA,ESP_PARTITION_SUBTYPE_DATA_NVS,"nvs");
+    return p&&p->address==0x9000&&p->size==CONFIG_NVS_BYTES?p:NULL;
+}
+static void config_reset(void){if(config_buffer)mbedtls_platform_zeroize(config_buffer,CONFIG_NVS_BYTES);free(config_buffer);config_buffer=NULL;config_mode=CONFIG_IDLE;config_received=0;mbedtls_platform_zeroize(config_digest,sizeof(config_digest));config_owner[0]=0;}
+static void config_wait_for_restart(void){mbedtls_platform_zeroize(config_buffer,CONFIG_NVS_BYTES);free(config_buffer);config_buffer=NULL;config_mode=CONFIG_RESTARTING;config_received=0;mbedtls_platform_zeroize(config_digest,sizeof(config_digest));}
+static bool device_id(char out[18]){uint8_t mac[6];if(esp_read_mac(mac,ESP_MAC_WIFI_STA)!=ESP_OK)return false;snprintf(out,18,"%02x:%02x:%02x:%02x:%02x:%02x",mac[0],mac[1],mac[2],mac[3],mac[4],mac[5]);return true;}
+static int hex_digit(unsigned char value){return value>='0'&&value<='9'?value-'0':value>='a'&&value<='f'?value-'a'+10:value>='A'&&value<='F'?value-'A'+10:-1;}
+static bool device_id_text(const char *value){if(!value||strlen(value)!=17)return false;for(unsigned i=0;i<17;i++)if(i%3==2?(value[i]!=':'):(hex_digit((unsigned char)value[i])<0))return false;return true;}
+static bool digest_text(const char *text,uint8_t out[32]){
+    if(!text||strlen(text)!=64)return false;
+    for(unsigned i=0;i<32;i++){int a=hex_digit((unsigned char)text[i*2]),b=hex_digit((unsigned char)text[i*2+1]);if(a<0||b<0)return false;out[i]=(uint8_t)(a*16+b);}
+    return true;
+}
+static bool config_partition_matches(const esp_partition_t *partition,const uint8_t expected[32]){
+    mbedtls_sha256_context context;uint8_t digest[32];mbedtls_sha256_init(&context);
+    int result=mbedtls_sha256_starts(&context,0);
+    for(size_t offset=0;result==0&&offset<CONFIG_NVS_BYTES;offset+=sizeof(binary)){size_t size=CONFIG_NVS_BYTES-offset;if(size>sizeof(binary))size=sizeof(binary);esp_err_t e=esp_partition_read(partition,offset,binary,size);if(e!=ESP_OK){result=-1;break;}result=mbedtls_sha256_update(&context,binary,size);}
+    if(result==0)result=mbedtls_sha256_finish(&context,digest);
+    mbedtls_sha256_free(&context);return result==0&&!memcmp(digest,expected,32);
+}
+static void restart_timer(void *arg){(void)arg;esp_restart();}
+static esp_err_t schedule_restart(void){return config_restart_timer?esp_timer_start_once(config_restart_timer,700000):ESP_ERR_INVALID_STATE;}
 esp_err_t profile_protocol_init(void) {
     yao_location_init();
     mutex=xSemaphoreCreateMutex();if(!mutex)return ESP_ERR_NO_MEM;
+    const esp_timer_create_args_t timer={.callback=restart_timer,.name="config_restart"};
+    esp_err_t timer_result=esp_timer_create(&timer,&config_restart_timer);if(timer_result!=ESP_OK){vSemaphoreDelete(mutex);mutex=NULL;return timer_result;}
     nvs_handle_t n;uint8_t id=0;
     if(nvs_open("badge_cards",NVS_READONLY,&n)==ESP_OK){nvs_get_u8(n,"active",&id);nvs_close(n);}
     if(id<profile_store_count())profile_store_select(id);
@@ -34,14 +76,16 @@ bool profile_protocol_lock(void) {return mutex&&xSemaphoreTake(mutex,pdMS_TO_TIC
 void profile_protocol_unlock(void) {xSemaphoreGive(mutex);}
 static esp_err_t select_badge(unsigned id) {
     if(id>=profile_store_count())return ESP_ERR_INVALID_ARG;
-    if(transferring||!profile_store_ready())return ESP_ERR_INVALID_STATE;
+    if(transferring||config_mode!=CONFIG_IDLE||!profile_store_ready())return ESP_ERR_INVALID_STATE;
     if(id==profile_store_badge())return ESP_OK;
     nvs_handle_t n;esp_err_t e=nvs_open("badge_cards",NVS_READWRITE,&n);
     if(e==ESP_OK){e=nvs_set_u8(n,"active",id);if(e==ESP_OK)e=nvs_commit(n);nvs_close(n);}
     return e==ESP_OK?profile_store_select(id):e;
 }
 static void expire(void) {
-    if(transferring&&esp_timer_get_time()-last_activity>15000000) {profile_store_abort();transferring=false;}
+    int64_t age=esp_timer_get_time()-last_activity;
+    if(transferring&&age>15000000) {profile_store_abort();transferring=false;}
+    if(config_mode!=CONFIG_IDLE&&age>60000000)config_reset();
 }
 esp_err_t profile_protocol_select(unsigned id) {
     if(!profile_protocol_lock())return ESP_ERR_INVALID_STATE;
@@ -50,7 +94,7 @@ esp_err_t profile_protocol_select(unsigned id) {
 esp_err_t profile_protocol_edit(unsigned id,unsigned revision,unsigned field,const char *text){
     if(!profile_protocol_lock())return ESP_ERR_INVALID_STATE;
     expire();
-    esp_err_t e=transferring?ESP_ERR_INVALID_STATE:profile_edit_locked(id,revision,field,text);
+    esp_err_t e=transferring||config_mode!=CONFIG_IDLE?ESP_ERR_INVALID_STATE:profile_edit_locked(id,revision,field,text);
     profile_protocol_unlock();return e;
 }
 static void catalog(cJSON *reply) {
@@ -68,7 +112,6 @@ static void catalog(cJSON *reply) {
     }
 }
 void profile_protocol_tick(void) {if(mutex&&xSemaphoreTake(mutex,0)==pdTRUE){expire();xSemaphoreGive(mutex);}}
-#include <stdio.h>
 static bool number(cJSON *o,const char *key,size_t max,size_t *value) {
     cJSON *v=cJSON_GetObjectItemCaseSensitive(o,key);
     if(!cJSON_IsNumber(v)||!isfinite(v->valuedouble)||v->valuedouble<0||v->valuedouble>max||floor(v->valuedouble)!=v->valuedouble) return false;
@@ -131,10 +174,14 @@ char *profile_protocol_request(const char *line,bool usb) {
     const char *sid=cJSON_IsString(session)?session->valuestring:"legacy";
     if(strlen(sid)>32)goto done;
     snprintf(client,sizeof(client),"%c:%s",usb?'U':'H',sid);
-    bool read_only=!strcmp(op->valuestring,"info")||!strcmp(op->valuestring,"read")||!strcmp(op->valuestring,"wifi_info")||!strcmp(op->valuestring,"wifi_scan_results")||!strcmp(op->valuestring,"badges")||!strcmp(op->valuestring,"xiaozhi_backend")||!strcmp(op->valuestring,"muse_config");
+    bool read_only=!strcmp(op->valuestring,"info")||!strcmp(op->valuestring,"read")||!strcmp(op->valuestring,"wifi_info")||!strcmp(op->valuestring,"wifi_scan_results")||!strcmp(op->valuestring,"badges")||!strcmp(op->valuestring,"xiaozhi_backend")||!strcmp(op->valuestring,"muse_config")||!strcmp(op->valuestring,"config_backup_info")||!strcmp(op->valuestring,"config_backup_read");
     if(!read_only)badge_power_activity();
     if(!read_only && transferring && strcmp(owner,client)) {e=ESP_ERR_INVALID_STATE;reason="upload_busy";goto done;}
-    if(!strcmp(owner,client))last_activity=esp_timer_get_time();
+    if(config_mode!=CONFIG_IDLE&&strcmp(config_owner,client)){e=ESP_ERR_INVALID_STATE;reason="backup_busy";goto done;}
+    if(!strcmp(owner,client)||!strcmp(config_owner,client))last_activity=esp_timer_get_time();
+    bool maintenance_op=!strcmp(op->valuestring,"config_backup_read")||!strcmp(op->valuestring,"config_backup_end")||!strcmp(op->valuestring,"config_restore_chunk")||!strcmp(op->valuestring,"config_restore_abort")||!strcmp(op->valuestring,"config_restore_commit");
+    bool export_read=config_mode==CONFIG_EXPORT&&read_only;
+    if(config_mode!=CONFIG_IDLE&&!maintenance_op&&!export_read){e=ESP_ERR_INVALID_STATE;reason="backup_busy";goto done;}
     size_t badge=profile_store_badge();
     if(cJSON_GetObjectItemCaseSensitive(q,"badge")&&!number(q,"badge",profile_store_count()-1,&badge))goto done;
     if(profile_store_count()>1&&!cJSON_GetObjectItemCaseSensitive(q,"badge")&&
@@ -146,12 +193,37 @@ char *profile_protocol_request(const char *line,bool usb) {
     if((!strcmp(op->valuestring,"begin")||!strcmp(op->valuestring,"clear")||!strcmp(op->valuestring,"badge_select"))&&profile_store_refresh_pending()){
         e=ESP_ERR_INVALID_STATE;reason="display_pending";goto done;
     }
-    if(!strcmp(op->valuestring,"info")) {
+    if(!strcmp(op->valuestring,"config_backup_info")) {
+        const esp_partition_t *p=config_nvs();char id[18];
+        if(p&&device_id(id)){cJSON_AddNumberToObject(reply,"format",1);cJSON_AddStringToObject(reply,"device",id);cJSON_AddNumberToObject(reply,"nvsSize",CONFIG_NVS_BYTES);cJSON_AddNumberToObject(reply,"badgeCount",profile_store_count());e=ESP_OK;}
+    } else if(!strcmp(op->valuestring,"config_backup_begin")) {
+        const esp_partition_t *p=config_nvs();
+        if(config_mode==CONFIG_IDLE&&!transferring&&p){config_buffer=malloc(CONFIG_NVS_BYTES);if(!config_buffer)e=ESP_ERR_NO_MEM;else {e=esp_partition_read(p,0,config_buffer,CONFIG_NVS_BYTES);if(e==ESP_OK){config_mode=CONFIG_EXPORT;config_received=CONFIG_NVS_BYTES;snprintf(config_owner,sizeof(config_owner),"%s",client);last_activity=esp_timer_get_time();}else config_reset();}}
+    } else if(!strcmp(op->valuestring,"config_backup_read")) {
+        size_t offset=0,count=0,n=0;
+        if(config_mode==CONFIG_EXPORT&&number(q,"offset",CONFIG_NVS_BYTES,&offset)&&number(q,"count",sizeof(binary),&count)&&count&&offset<=CONFIG_NVS_BYTES&&count<=CONFIG_NVS_BYTES-offset&&mbedtls_base64_encode((unsigned char *)encoded,sizeof(encoded),&n,config_buffer+offset,count)==0){encoded[n]=0;cJSON_AddStringToObject(reply,"data",encoded);cJSON_AddNumberToObject(reply,"offset",offset+count);e=ESP_OK;}
+    } else if(!strcmp(op->valuestring,"config_backup_end")) {
+        if(config_mode==CONFIG_EXPORT){config_reset();e=ESP_OK;}
+    } else if(!strcmp(op->valuestring,"config_restore_begin")) {
+        cJSON *device=cJSON_GetObjectItemCaseSensitive(q,"device"),*sha=cJSON_GetObjectItemCaseSensitive(q,"sha256");size_t size=0;
+        if(config_mode==CONFIG_IDLE&&!transferring&&cJSON_IsString(device)&&device_id_text(device->valuestring)&&cJSON_IsString(sha)&&digest_text(sha->valuestring,config_digest)&&number(q,"size",CONFIG_NVS_BYTES,&size)&&size==CONFIG_NVS_BYTES){config_buffer=malloc(CONFIG_NVS_BYTES);if(!config_buffer)e=ESP_ERR_NO_MEM;else {config_mode=CONFIG_IMPORT;config_received=0;snprintf(config_owner,sizeof(config_owner),"%s",client);last_activity=esp_timer_get_time();e=ESP_OK;}}
+    } else if(!strcmp(op->valuestring,"config_restore_chunk")) {
+        cJSON *s=cJSON_GetObjectItemCaseSensitive(q,"data");size_t offset=0,n=0;
+        if(config_mode==CONFIG_IMPORT&&cJSON_IsString(s)&&strlen(s->valuestring)<=1024&&number(q,"offset",CONFIG_NVS_BYTES,&offset)&&offset==config_received&&mbedtls_base64_decode(binary,sizeof(binary),&n,(const unsigned char *)s->valuestring,strlen(s->valuestring))==0&&n>0&&n<=CONFIG_NVS_BYTES-config_received){memcpy(config_buffer+config_received,binary,n);config_received+=n;cJSON_AddNumberToObject(reply,"offset",config_received);e=ESP_OK;}
+    } else if(!strcmp(op->valuestring,"config_restore_abort")) {
+        if(config_mode==CONFIG_IMPORT){config_reset();e=ESP_OK;}
+    } else if(!strcmp(op->valuestring,"config_restore_commit")) {
+        uint8_t digest[32];const esp_partition_t *p=config_nvs();
+        if(config_mode==CONFIG_IMPORT&&config_received==CONFIG_NVS_BYTES&&p&&mbedtls_sha256(config_buffer,CONFIG_NVS_BYTES,digest,0)==0&&!memcmp(digest,config_digest,32)){
+            e=nvs_flash_deinit();if(e==ESP_OK)e=esp_partition_erase_range(p,0,CONFIG_NVS_BYTES);if(e==ESP_OK)e=esp_partition_write(p,0,config_buffer,CONFIG_NVS_BYTES);if(e==ESP_OK&&!config_partition_matches(p,config_digest))e=ESP_ERR_INVALID_CRC;if(e==ESP_OK)e=schedule_restart();if(e==ESP_OK)config_wait_for_restart();
+        }
+    } else if(!strcmp(op->valuestring,"info")) {
         yao_location_t place=yao_location_get();
         cJSON_AddItemToObject(reply,"yaoTime",yao_time_json(yao_time_now(),&place));
         cJSON_AddStringToObject(reply,"yaoLocationStatus",yao_location_status());
         unsigned version=profile_store_version_for(badge);
         cJSON_AddNumberToObject(reply,"protocol",2);
+        cJSON_AddStringToObject(reply,"firmwareVersion",BADGE_VERSION);
         badge_power_status_t power=badge_power_status();
         cJSON *power_json=cJSON_AddObjectToObject(reply,"power");
         cJSON_AddBoolToObject(power_json,"screenOff",power.screen_off);

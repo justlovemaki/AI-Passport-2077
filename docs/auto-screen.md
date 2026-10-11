@@ -4,8 +4,8 @@
 
 From the home menu open Settings → Automatic screen sleep. Choose Always on,
 30 seconds, 1 minute (default), 2 minutes or 5 minutes with Up/Down. OK saves
-the selection across restarts. Long OK opens the usual return chooser; leaving
-without confirming preserves the previous choice. This preference applies to
+the selection across restarts. Long OK returns directly to Settings without
+saving the tentative selection, preserving the previous choice. This preference applies to
 all pages, independently of whether XiaoZhi background wake is enabled.
 
 Listening, thinking and speaking keep the screen awake. Waiting for a local

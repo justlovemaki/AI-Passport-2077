@@ -10,6 +10,7 @@
 > 固件编译优先运行 `./tools/validate.sh --firmware`。空白设备初始化或有意完整
 > 刷新时，把验证通过的 `build/FoloToy-AI-Passport-full.bin` 从 `0x0` 写入；
 > 合并镜像可能重置 NVS，需要保留已有 NVS 状态时使用分段 `idf.py flash`。
+> 主动整包写入/擦除前，从[配置页](../../config-backup.zh_CN.md)第 07 节导出备份。
 > `idf.py build` 和
 > `idf.py flash` 只作为增量开发命令，不作为默认交付方式。
 

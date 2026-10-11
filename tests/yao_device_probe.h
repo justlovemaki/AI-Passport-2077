@@ -1,6 +1,11 @@
 /* Opt-in navigation/voice handoff test; no profile or network credential writes. */
 extern unsigned demo_xiaozhi_yao_probe(unsigned field);
-static void yao_probe_key(bsp_btn_t button,bsp_btn_ev_t event){input_event_t e={button,event};process_input(&e);}
+static void yao_probe_key(bsp_btn_t button,bsp_btn_ev_t event){
+    input_event_t e={button,BSP_BTN_PRESS};process_input(&e);
+    if(event==BSP_BTN_LONG){e.event=event;process_input(&e);}
+    e.event=BSP_BTN_RELEASE;process_input(&e);
+    if(event!=BSP_BTN_LONG){e.event=event;process_input(&e);}
+}
 static void yao_device_probe_tick(void){
     static unsigned step,round=1,waits,baseline;static int64_t next=20000000;static yao_record_t saved;
     if(step>12||esp_timer_get_time()<next)return;
@@ -29,7 +34,10 @@ static void yao_device_probe_tick(void){
         }else ESP_LOGI("yao_probe","CLOUD_AUDIO_PASS round=%u samples=%u",round,demo_xiaozhi_yao_probe(0)-baseline);
         next=esp_timer_get_time()+1500000;
     }else if(step==9){
-        yao_probe_key(BSP_BTN_OK,BSP_BTN_LONG);yao_probe_key(BSP_BTN_OK,BSP_BTN_CLICK);
+        yao_probe_key(BSP_BTN_OK,BSP_BTN_LONG);
+        configASSERT(return_menu.open&&return_menu.plan.destination==BADGE_PLAYING);
+        while(return_menu.selected!=0)yao_probe_key(BSP_BTN_UP,BSP_BTN_CLICK);
+        yao_probe_key(BSP_BTN_OK,BSP_BTN_CLICK);
         configASSERT(navigation.page==BADGE_PLAYING);
         yao_record_t after;configASSERT(yao_latest(&after)&&after.id==saved.id&&!memcmp(after.lines,saved.lines,6));
         ESP_LOGI("yao_probe","RETURN_SAME_RESULT_PASS");

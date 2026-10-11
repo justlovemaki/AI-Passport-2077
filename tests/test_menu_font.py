@@ -30,7 +30,21 @@ assert app_ids and app_ids[0] == 'muse', app_ids
 shengbei = (ROOT / 'main/shengbei_app.c').read_text(encoding='utf-8')
 coverage('font_muyu_14.c', ''.join(re.findall(r'"([^"]*[\u3000-\u9fff][^"]*)"', registry + shengbei)))
 coverage('font_badge_28.c', '圣杯笑阴阳未投掷')
-print('Menu generated summary, app labels and all preset station names: font coverage PASS')
+return_sources = ''
+for name, start, end in (
+    ('badge_navigation.c', 'void badge_return_menu_failed', 'void badge_navigation_badges'),
+    ('badge_ui.c', 'static const char *return_destination', 'static void setup_steps'),
+    ('main.c', 'static bool query_return', 'static nvs_handle_t settings'),
+    ('voice_app.c', 'bool demo_voice_return_context', 'bool demo_voice_back'),
+    ('radio_app.cc', 'extern "C" bool demo_radio_return_context', 'extern "C" bool demo_radio_back'),
+    ('muse_app.cc', 'extern "C" bool demo_muse_return_context', 'extern "C" void demo_muse_key'),
+    ('xiaozhi_app.cc', 'extern "C" bool demo_xiaozhi_return_context', 'extern "C" bool demo_xiaozhi_active'),
+):
+    source = (ROOT / 'main' / name).read_text(encoding='utf-8')
+    return_sources += source[source.index(start):source.index(end)]
+# Modal text always uses the shared UI14 font, including above AI/Muse screens.
+coverage('font_muyu_14.c', ''.join(re.findall(r'"([^"\n]*[\u3000-\u9fff][^"\n]*)"', return_sources)))
+print('Menu, return chooser and preset labels: font coverage PASS')
 
 # The complete control legend must fit at once, including long-press actions.
 footer = (ROOT / 'main/badge_footer.h').read_text(encoding='utf-8')

@@ -28,6 +28,13 @@ extern "C" esp_err_t demo_radio_stop(){
     if(timer){lv_timer_delete(timer);timer=nullptr;}bsp_lvgl_unlock();return ESP_OK;
 }
 extern "C" void demo_radio_exit(){radio_ui_destroy();}
+extern "C" bool demo_radio_return_context(badge_return_context_t *context){
+    if(!bsp_lvgl_lock(100))return false;
+    *context={};context->internal=radio_controls_can_back(&controls);
+    context->detail="退出后停止播放";
+    context->resume=radio_ui_snapshot().state==RadioPlaybackState::Playing?"继续收听":"继续当前页面";
+    bsp_lvgl_unlock();return true;
+}
 extern "C" bool demo_radio_back(){if(!bsp_lvgl_lock(1000))return true;bool consumed=radio_controls_back(&controls);if(consumed)refresh(nullptr);bsp_lvgl_unlock();return consumed;}
 extern "C" void demo_radio_key(bsp_btn_t button,bsp_btn_ev_t event){
     if(!started)return;

@@ -38,7 +38,7 @@ function drawName(ctx,text,x=88,y=4,width=112,height=32,family){
  ctx.restore();return layout;
 }
 function deviceError(reply){
- const messages={display_pending:'工牌正在刷新资料，请稍候重试。',profile_changed:'这张工牌已被其他页面或小智修改。当前编辑已保留，请核对并重新读取设备资料后保存。',upload_busy:'另一个配置页面正在上传，请等待其完成或断开。'};
+ const messages={display_pending:'工牌正在刷新资料，请稍候重试。',profile_changed:'这张工牌已被其他页面或小智修改。当前编辑已保留，请核对并重新读取设备资料后保存。',upload_busy:'另一个配置页面正在上传，请等待其完成或断开。',backup_busy:'另一个配置页面正在导入或导出，请等待其完成。'};
  const error=Error(messages[reply.reason]||reply.error||'设备拒绝请求');error.code=reply.error;error.reason=reply.reason;return error;
 }
 async function beginProfileUpload(device,args){

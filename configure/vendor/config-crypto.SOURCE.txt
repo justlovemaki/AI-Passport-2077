@@ -1,0 +1,10 @@
+Browser fallback cryptography bundle for configuration import/export.
+
+Generated with esbuild 0.28.2 from:
+- @noble/ciphers 2.4.0, https://github.com/paulmillr/noble-ciphers, MIT
+- @noble/hashes 2.4.0, https://github.com/paulmillr/noble-hashes, MIT
+
+Exports only PBKDF2-HMAC-SHA-256, SHA-256, AES-GCM and secure random helpers.
+WebCrypto is preferred in secure contexts; the audited pure-JavaScript fallback
+keeps password-protected backups available from the badge's local HTTP hotspot.
+Full licenses are in noble-ciphers.LICENSE and noble-hashes.LICENSE.

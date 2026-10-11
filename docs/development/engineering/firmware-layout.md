@@ -75,7 +75,10 @@ The verified merged image is written from `0x0`. Because the merged file pads
 the gaps between images, flashing it can reset the NVS and PHY data regions.
 Use the merged image for blank-device provisioning or an intentional complete
 refresh. During normal development, use segmented `idf.py flash` when existing
-NVS state should be preserved. `idf.py erase-flash` erases all user data.
+NVS state should be preserved. Before an intentional merged-image write or
+`idf.py erase-flash`, export a password-protected backup from section 07 of the
+[USB/hotspot configuration page](../../config-backup.md). `idf.py erase-flash`
+erases all user data.
 
 Voice resources use a contiguous logical stream split around the profile partitions, without filesystem formatting. `tools/flash_badge.py` backs up and validates before segmented installation. Merged-image padding also covers profiles 2–5; it must not be used for preserving updates.
 

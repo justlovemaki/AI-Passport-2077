@@ -1,5 +1,6 @@
 #pragma once
 #include "demo.h"
+#include "badge_navigation.h"
 #include "yao_service.h"
 #include <stddef.h>
 #ifdef __cplusplus
@@ -11,6 +12,7 @@ void demo_xiaozhi_exit(void);
 void demo_xiaozhi_key(bsp_btn_t button,bsp_btn_ev_t event);
 esp_err_t demo_xiaozhi_start(void);
 esp_err_t demo_xiaozhi_stop(void);
+bool demo_xiaozhi_return_context(badge_return_context_t *context);
 /* Navigation task, before start; copies a compact confirmed reading, not JSON. */
 bool demo_xiaozhi_set_reading(const yao_record_t *record);
 // Navigation task only, outside the LVGL lock; never touches a running worker.

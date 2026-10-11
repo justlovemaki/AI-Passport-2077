@@ -2,7 +2,7 @@
 
 English | [简体中文](README.zh_CN.md)
 
-Fork application: [Arasaka Personnel Badge](../README.md) · [Validation report](muyu-validation.md).
+Fork application: [Arasaka Personnel Badge](../README.md) · [Validation report](muyu-validation.md) · [Encrypted configuration import/export](config-backup.md).
 
 FoloToy AI Passport is open wearable AI hardware. This repository is the development baseline for the device. It keeps the **hardware facts, stable interfaces, resource boundaries, reference implementations, and validation methods** needed to build applications in one place.
 

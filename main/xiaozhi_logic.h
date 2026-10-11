@@ -5,6 +5,11 @@ typedef enum {XZ_IDLE,XZ_CONNECTING,XZ_ACTIVATION,XZ_READY,XZ_LISTENING,XZ_THINK
 typedef enum {XZ_NO_ACTION,XZ_CONNECT,XZ_START,XZ_PAUSE,XZ_INTERRUPT} xz_action_t;
 typedef enum {XZ_FAULT_NONE,XZ_FAULT_TRANSPORT,XZ_FAULT_TIMEOUT,XZ_FAULT_MEMORY,
     XZ_FAULT_QUEUE,XZ_FAULT_PROTOCOL,XZ_FAULT_AUDIO,XZ_FAULT_SERVER_END} xz_fault_t;
+/* READY can auto-resume capture; conservatively protect an active session. */
+static inline bool xz_return_confirmation(xz_state_t state){
+    return state==XZ_CONNECTING||state==XZ_READY||state==XZ_LISTENING||
+           state==XZ_THINKING||state==XZ_SPEAKING;
+}
 /* Start capture only after discovery. The shared codec arena is reserved
  * before the handshake and retained until this audio session is parked. */
 static inline bool xz_session_ready(bool hello,bool tools_advertised){return hello&&tools_advertised;}

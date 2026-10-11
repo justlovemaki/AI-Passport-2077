@@ -20,6 +20,9 @@ int voice_navigation_ok(voice_navigation_t *n) {
     if(n->view==VOICE_PACKS){n->view=VOICE_CLIPS;n->clip=0;return -1;}
     return (int)(voice_packs[n->pack].first+n->clip);
 }
+bool voice_navigation_can_back(const voice_navigation_t *n) {
+    return n->view!=VOICE_PACKS;
+}
 bool voice_navigation_back(voice_navigation_t *n) {
     if(n->view==VOICE_VOLUME){n->view=n->previous;return true;}
     if(n->view==VOICE_CLIPS){n->view=VOICE_PACKS;return true;}

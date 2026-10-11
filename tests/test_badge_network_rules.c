@@ -16,7 +16,8 @@ int main(void){
     assert(badge_setup_tick(&seen,true,false,3600)==BADGE_SETUP_IDLE); /* Respect manual close; OK can reopen. */
     assert(badge_setup_tick(&seen,false,true,3600)==BADGE_SETUP_EXTEND); /* First save finishes onboarding. */
     assert(badge_setup_tick(&seen,false,true,600)==BADGE_SETUP_IDLE);
-    assert(badge_setup_tick(&seen,false,true,601)==BADGE_SETUP_CLOSE);
+    assert(badge_setup_tick(&seen,false,true,601)==BADGE_SETUP_IDLE); /* Configuration remains available. */
+    assert(badge_setup_tick(&seen,false,true,3600)==BADGE_SETUP_IDLE);
     assert(badge_setup_tick(&seen,true,false,900)==BADGE_SETUP_START); /* Last profile cleared. */
     uint8_t ipv4[4]={192,168,4,1};
     uint8_t mapped[16]={0,0,0,0,0,0,0,0,0,0,255,255,192,168,4,1};

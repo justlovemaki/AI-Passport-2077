@@ -8,16 +8,16 @@
 #include "shengbei_app.h"
 #include "muse_app.h"
 const badge_game_t BADGE_GAMES_REGISTRY[] = {
-    {.id="muse", .description="语音输入 / 文字回复", .category="MUSE / VOICE AGENT", .artwork=BADGE_GAME_ART_MUSE,
+    {.id="muse", .description="语音输入 / 文字回复", .category="MUSE / VOICE AGENT", .artwork=BADGE_GAME_ART_MUSE, .return_context=demo_muse_return_context,
      .lifecycle={.name="Muse", .enter=demo_muse_enter, .exit=demo_muse_exit,
         .key=demo_muse_key, .start=demo_muse_start, .stop=demo_muse_stop}},
     {.id="zen-muyu", .description="轻敲一下，放空片刻", .category="ZEN / RELAX", .artwork=BADGE_GAME_ART_MUYU,
      .lifecycle={.name="敲木鱼", .enter=demo_muyu_enter, .exit=demo_muyu_exit,
         .key=demo_muyu_key, .start=demo_muyu_start, .stop=demo_muyu_stop}},
-    {.id="voice-keychain", .description=VOICE_SUMMARY, .category="VOICE / SOUNDBOARD", .artwork=BADGE_GAME_ART_VOICE, .back=demo_voice_back,
+    {.id="voice-keychain", .description=VOICE_SUMMARY, .category="VOICE / SOUNDBOARD", .artwork=BADGE_GAME_ART_VOICE, .back=demo_voice_back, .return_context=demo_voice_return_context,
      .lifecycle={.name="音效钥匙扣", .enter=demo_voice_enter, .exit=demo_voice_exit,
         .key=demo_voice_key, .start=demo_voice_start, .stop=demo_voice_stop}},
-    {.id="leo-radio", .description="城市电台 / 在线收听", .category="LEO / INTERNET RADIO", .artwork=BADGE_GAME_ART_RADIO, .back=demo_radio_back,
+    {.id="leo-radio", .description="城市电台 / 在线收听", .category="LEO / INTERNET RADIO", .artwork=BADGE_GAME_ART_RADIO, .back=demo_radio_back, .return_context=demo_radio_return_context,
      .lifecycle={.name="城市电台", .enter=demo_radio_enter, .exit=demo_radio_exit,
         .key=demo_radio_key, .start=demo_radio_start, .stop=demo_radio_stop}},
     {.id="cyber-yao", .description="六爻起卦 / 小智解读", .category="CYBER YAO", .artwork=BADGE_GAME_ART_YAO,

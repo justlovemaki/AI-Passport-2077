@@ -16,6 +16,7 @@ void radio_controls_init(radio_controls_t *c,int volume,unsigned city);
 radio_action_t radio_controls_move(radio_controls_t *c,int direction);
 radio_action_t radio_controls_ok(radio_controls_t *c);
 void radio_controls_settings(radio_controls_t *c);
+bool radio_controls_can_back(const radio_controls_t *c);
 bool radio_controls_back(radio_controls_t *c);
 #ifdef __cplusplus
 }

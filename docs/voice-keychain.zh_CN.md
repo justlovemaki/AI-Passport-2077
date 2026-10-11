@@ -1,5 +1,5 @@
 <p align="right"><strong>简体中文</strong> · <a href="voice-keychain.md">English</a></p>
-> 本文记录 1.8.0 的原始集成与实测；当前数量和分区请查看 [1.9.1 音效精简](voice-pruning.zh_CN.md)。
+> 本文记录 1.8.0 的原始集成与实测；当前数量和分区请查看 [1.9.1 音效精简](voice-pruning.zh_CN.md)；当前[返回导航](setup-navigation.zh_CN.md)在内部页直接返回，在分类根页保留有用的退出选择。
 
 
 # 音效钥匙扣集成 — 1.8.0

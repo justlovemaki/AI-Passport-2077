@@ -282,6 +282,16 @@ extern "C" esp_err_t demo_muse_stop(void) {
     if (!stopped) return ESP_ERR_TIMEOUT;
     return power;
 }
+extern "C" bool demo_muse_return_context(badge_return_context_t *context) {
+    passport_muse_stage_t current_stage;
+    (void)passport_muse_reply_state(0, nullptr, &current_stage);
+    *context = {};
+    context->confirm = current_stage == PASSPORT_MUSE_LISTENING ||
+                       current_stage == PASSPORT_MUSE_WORKING;
+    context->detail = context->confirm ? "退出将取消本地录音或等待" : "退出后结束当前应用";
+    context->resume = "继续当前页面";
+    return true;
+}
 extern "C" void demo_muse_key(bsp_btn_t button, bsp_btn_ev_t event) {
     if (button == BSP_BTN_UP) {
         if (event == BSP_BTN_PRESS) passport_muse_key(true, false);

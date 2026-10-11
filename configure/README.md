@@ -12,9 +12,19 @@ Muse setup accepts the owner's SDK token and an optional IPv4 HTTP CONNECT proxy
 
 Brand text is rasterized at 148 × 44, icon at 32 × 32, and avatar at 72 × 88. The identity card is 208 × 148 RGB565. QR images are decoded locally, regenerated with integer-sized modules and a quiet zone, then re-decoded to verify identical bytes before accepting the image. Codes too dense for 192 × 192 at two pixels per module are rejected. QR display retains black/white contrast regardless of theme. Actual phone/WeChat scanning must still be checked on the physical display.
 
+## Complete configuration import/export
+
+Section 07 exports saved NVS preferences/credentials and all five committed
+badge profiles from either Web Serial or the phone hotspot into a locally
+password-encrypted `.aipcfg` file. Import accepts another badge with compatible firmware, warns that credentials,
+pairing and cloud identity are copied, and first downloads a target recovery snapshot. Passwords/tokens
+remain hidden from ordinary form fields. Unsaved browser edits are not included.
+See [encryption and interruption recovery](../docs/config-backup.md).
+
 ## Third-party libraries
 
 - jsQR 1.4.0 from the official npm package, upstream https://github.com/cozmo/jsQR, Apache-2.0; see `vendor/jsQR.LICENSE`.
+- `@noble/ciphers` 2.4.0 and `@noble/hashes` 2.4.0, upstream https://github.com/paulmillr/noble-ciphers and https://github.com/paulmillr/noble-hashes, MIT; used only as the AES-GCM/PBKDF2/SHA-256 fallback when the local HTTP hotspot has no WebCrypto. See `vendor/config-crypto.SOURCE.txt` and the two license files.
 - Project Nayuki QR Code generator, upstream https://github.com/nayuki/QR-Code-generator/blob/master/typescript-javascript/qrcodegen.ts, retrieved 2026-09-15, MIT; see `vendor/qrcodegen.LICENSE`. Compiled with TypeScript 5.9.3; both libraries minified with Terser 5.44.0. These runtime copies are bundled inline.
 - `assets/images/cyber-badge/test-qr.bin` encodes the public fixture `https://example.com/test-contact`; it contains no real contact information.
 

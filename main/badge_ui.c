@@ -344,22 +344,42 @@ static void photo_fade(int x,int y,int w,int h,lv_grad_dir_t direction) {
 static void scan(void *object,int32_t value) {
     scan_progress=value;lv_obj_invalidate(object);
 }
+static const char *return_destination(badge_page_t page) {
+    switch(page) {
+    case BADGE_HOME:return "回到工牌";
+    case BADGE_GAMES:return "返回小程序";
+    case BADGE_PLAYING:return "返回卦象";
+    case BADGE_AI_CHAT:return "返回对话";
+    case BADGE_AI_SETTINGS:return "返回小智设置";
+    case BADGE_SETTINGS:return "返回系统设置";
+    case BADGE_TERMINAL:return "返回终端菜单";
+    default:return "返回入口";
+    }
+}
 void badge_ui_return_menu(const badge_return_menu_t *menu) {
     if(return_overlay){lv_obj_delete(return_overlay);return_overlay=NULL;}
     if(!menu||!menu->open)return;
     return_overlay=lv_obj_create(lv_layer_top());lv_obj_remove_style_all(return_overlay);lv_obj_set_size(return_overlay,240,320);
     lv_obj_set_style_bg_color(return_overlay,lv_color_hex(BLACK),0);lv_obj_set_style_bg_opa(return_overlay,LV_OPA_80,0);
     lv_obj_remove_flag(return_overlay,LV_OBJ_FLAG_SCROLLABLE);
-    lv_obj_t *panel=lv_obj_create(return_overlay);lv_obj_remove_style_all(panel);lv_obj_set_pos(panel,14,68);lv_obj_set_size(panel,212,204);
+    lv_obj_t *panel=lv_obj_create(return_overlay);lv_obj_remove_style_all(panel);lv_obj_set_pos(panel,14,48);lv_obj_set_size(panel,212,240);
     lv_obj_set_style_bg_color(panel,lv_color_hex(PANEL),0);lv_obj_set_style_bg_opa(panel,LV_OPA_COVER,0);lv_obj_set_style_border_width(panel,1,0);lv_obj_set_style_border_color(panel,lv_color_hex(RED),0);
-    const char *texts[]={"返回到哪里？","返回上一级","回到首页","继续当前页面"};
-    for(unsigned i=0;i<4;i++) {
-        lv_obj_t *o=lv_label_create(panel);lv_obj_set_style_text_font(o,((navigation.page==BADGE_AI_SETTINGS||navigation.page==BADGE_AI_VOLUME_PAGE||navigation.page==BADGE_SETTINGS)?&font_xiaozhi_14:&font_muyu_14),0);lv_obj_set_size(o,188,27);lv_obj_set_pos(o,12,i==0?12:45+(i-1)*40);
-        lv_label_set_text(o,texts[i]);lv_obj_set_style_text_color(o,lv_color_hex(i==0?RED:WHITE),0);
-        if(i>0&&i<4){lv_obj_set_style_pad_top(o,4,0);lv_obj_set_style_pad_left(o,8,0);}
-        if(i>0&&i<4&&menu->selected==i-1){lv_obj_set_style_bg_color(o,lv_color_hex(RED),0);lv_obj_set_style_bg_opa(o,LV_OPA_COVER,0);lv_obj_set_style_text_color(o,lv_color_hex(on_accent),0);}
+    const char *texts[5]={menu->title?menu->title:"离开当前应用",
+        menu->detail?menu->detail:"退出后结束当前应用",
+        return_destination(menu->plan.destination),"回到工牌",
+        menu->resume?menu->resume:"继续当前页面"};
+    if(menu->count==2)texts[3]=texts[4];
+    unsigned rows=menu->stopping?2:menu->count+2;
+    for(unsigned i=0;i<rows;i++) {
+        lv_obj_t *o=lv_label_create(panel);
+        lv_obj_set_style_text_font(o,&font_muyu_14,0);
+        lv_obj_set_size(o,188,i==1?42:27);lv_obj_set_pos(o,12,i==0?12:i==1?42:96+(i-2)*40);
+        lv_label_set_long_mode(o,i==1?LV_LABEL_LONG_WRAP:LV_LABEL_LONG_CLIP);
+        lv_label_set_text(o,texts[i]);lv_obj_set_style_text_color(o,lv_color_hex(i==0?RED:i==1?MUTED:WHITE),0);
+        if(i>=2){lv_obj_set_style_pad_top(o,4,0);lv_obj_set_style_pad_left(o,8,0);}
+        if(i>=2&&menu->selected==i-2){lv_obj_set_style_bg_color(o,lv_color_hex(RED),0);lv_obj_set_style_bg_opa(o,LV_OPA_COVER,0);lv_obj_set_style_text_color(o,lv_color_hex(on_accent),0);}
     }
-    lv_obj_t *actions=badge_footer_create(return_overlay,BADGE_HINT_RETURN);
+    lv_obj_t *actions=badge_footer_create(return_overlay,menu->stopping?"":BADGE_HINT_RETURN);
     lv_obj_set_style_bg_color(actions,lv_color_hex(BLACK),0);lv_obj_set_style_bg_opa(actions,LV_OPA_COVER,0);
 }
 static void setup_steps(void) {

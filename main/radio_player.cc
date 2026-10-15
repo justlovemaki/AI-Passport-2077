@@ -11,6 +11,12 @@ extern "C" {
 #include "radio_directory.h"
 #include "radio_controls.h"
 #include "radio_logic.h"
+#include "radio_stream_buffer.h"
+#include "radio_diagnostics.h"
+#include "radio_pcm_output.h"
+#include "radio_buffer_budget.h"
+#include "radio_probe.h"
+#include "lwip/sockets.h"
 #include "esp_crt_bundle.h"
 #include "esp_http_client.h"
 #include "esp_log.h"
@@ -34,12 +40,17 @@ extern "C" {
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <new>
 
 namespace {
 
 constexpr char kTag[] = "radio_player";
-constexpr std::size_t kInputSize = 1024;
-constexpr std::size_t kOutputSize = 4608; // One MP3 frame: 1152 samples x stereo x 16-bit.
+constexpr std::size_t kInputSize = radio_buffers::kDecoderInputBytes;
+// A 32 KiB reserve left only 4-8 KiB after lazy decoder/sink allocation.
+// Keep network receive headroom instead of filling all remaining internal RAM.
+constexpr std::size_t kReadAheadSize = radio_buffers::kCompressedBytes;
+constexpr std::size_t kPrebufferSize = radio_buffers::kStartupBytes;
+constexpr std::size_t kOutputSize = radio_buffers::kDecoderOutputBytes;
 constexpr std::size_t kLevelCount = 18;
 constexpr std::size_t kMaxStations = RadioDirectory::kLocalCapacity;
 // Consecutive silent failures tolerated before moving to the next station.
@@ -52,6 +63,13 @@ std::atomic<std::size_t> s_station_count{0};
 std::atomic<uint8_t> s_volume{55};
 std::atomic<uint32_t> s_generation{1};
 std::atomic<bool> s_stream_active{false};
+std::atomic<bool> s_service_ready{false},s_receive_probe_running{false};
+std::atomic<unsigned> s_read_bytes{radio_buffers::kDefaultReadBytes};
+static portMUX_TYPE s_probe_mux=portMUX_INITIALIZER_UNLOCKED;
+static uint32_t s_probe_generation;
+static std::size_t s_probe_station;
+static void cancel_probe_request(){portENTER_CRITICAL(&s_probe_mux);radio_probe_cancel();portEXIT_CRITICAL(&s_probe_mux);}
+static void finish_probe_request(){portENTER_CRITICAL(&s_probe_mux);radio_probe_finish();portEXIT_CRITICAL(&s_probe_mux);}
 TaskHandle_t s_player_task;
 SemaphoreHandle_t s_station_mutex;
 SemaphoreHandle_t s_done;
@@ -162,10 +180,10 @@ bool install_stations(const RadioStation *stations, std::size_t count,
 
 bool request_still_current(uint32_t generation, std::size_t station) {
     if(s_deadline.load() && radio_timer_expired(s_deadline.load(),now_seconds())) {
-        s_deadline.store(0);s_wanted_playing.store(false);radio_ui_set_playback(RadioPlaybackState::Stopped,"定时结束");
+        s_deadline.store(0);s_wanted_playing.store(false);s_receive_probe_running.store(false);radio_ui_set_playback(RadioPlaybackState::Stopped,"定时结束");
     }
     return !s_stopping.load() && s_network_connected.load(std::memory_order_acquire) &&
-           s_wanted_playing.load(std::memory_order_acquire) &&
+           (s_wanted_playing.load(std::memory_order_acquire)||s_receive_probe_running.load()) &&
            s_generation.load(std::memory_order_acquire) == generation &&
            s_station_index.load(std::memory_order_acquire) == station;
 }
@@ -219,9 +237,95 @@ esp_audio_simple_dec_handle_t open_mp3_decoder() {
     return decoder;
 }
 
-bool stream_station(std::size_t station, uint32_t generation) {
+void capture_peer(esp_http_client_handle_t client){
+    const int fd=esp_http_client_get_socket(client);if(fd<0)return;
+    struct sockaddr_storage address{};socklen_t size=sizeof(address);
+    if(getpeername(fd,reinterpret_cast<struct sockaddr *>(&address),&size)!=0)return;
+    if(address.ss_family==AF_INET){
+        radio_diagnostics_set(RADIO_DIAG_PEER_FAMILY,4);
+        radio_diagnostics_set(RADIO_DIAG_PEER_IP4,ntohl(reinterpret_cast<struct sockaddr_in *>(&address)->sin_addr.s_addr));
+    }else if(address.ss_family==AF_INET6)radio_diagnostics_set(RADIO_DIAG_PEER_FAMILY,6);
+    radio_diagnostics_set(RADIO_DIAG_TLS,esp_http_client_get_transport_type(client)==HTTP_TRANSPORT_OVER_SSL);
+}
+bool socket_ready(esp_http_client_handle_t client){
+    const int fd=esp_http_client_get_socket(client);if(fd<0||fd>=FD_SETSIZE)return false;
+    fd_set reads;FD_ZERO(&reads);FD_SET(fd,&reads);struct timeval timeout{};
+    const int ready=select(fd+1,&reads,nullptr,nullptr,&timeout);
+    if(ready<0)return false;
+    radio_diagnostics_add(RADIO_DIAG_SOCKET_READY_CHECKS,1);return ready>0;
+}
+
+/* Only this short-lived reader accesses HTTP while the owner decodes/enqueues.
+ * Compressed read-ahead absorbs network jitter without a large PCM allocation.
+ * The owner joins it before closing HTTP, freeing buffers or releasing the UI. */
+struct StreamReader {
+    esp_http_client_handle_t client;
+    std::size_t station;
+    uint32_t generation;
+    unsigned read_bytes=radio_buffers::kDefaultReadBytes;
+    RadioStreamBuffer<kReadAheadSize> bytes;
+    std::atomic<bool> stop{false},done{false},drain_only{false};
+};
+void stream_reader_task(void *arg) {
+    auto *reader=static_cast<StreamReader *>(arg);
+    uint8_t block[radio_buffers::kMaxReadBytes];
+    int empty_reads=0;
+    int64_t last_data=esp_timer_get_time();
+    while(!reader->stop.load()&&request_still_current(reader->generation,reader->station)) {
+        if(now_seconds()!=s_last_status){
+            s_last_status=now_seconds();badge_network_status_t net;badge_network_status(&net);
+            radio_player_set_network(net.connected);radio_ui_set_network(net.connected);
+            refresh_battery();
+            radio_diagnostics_min(RADIO_DIAG_MIN_FREE_HEAP,esp_get_free_heap_size());
+        }
+        const int64_t read_start=esp_timer_get_time();
+        const int received=esp_http_client_read(reader->client,reinterpret_cast<char *>(block),reader->read_bytes);
+        if(reader->stop.load()||!request_still_current(reader->generation,reader->station))break;
+        radio_diagnostics_max(RADIO_DIAG_MAX_HTTP_US,static_cast<uint32_t>(std::min<int64_t>(esp_timer_get_time()-read_start,UINT32_MAX)));
+        if(received==-ESP_ERR_HTTP_EAGAIN){
+            radio_diagnostics_add(RADIO_DIAG_HTTP_TIMEOUTS,1);
+            if(socket_ready(reader->client))radio_diagnostics_add(RADIO_DIAG_TIMEOUT_SOCKET_READY,1);
+            if(esp_timer_get_time()-last_data>8000000){radio_diagnostics_set(RADIO_DIAG_ERROR,RADIO_DIAG_HTTP_IDLE_ERROR);break;}
+            vTaskDelay(1);continue;
+        }
+        if(received<0){radio_diagnostics_set(RADIO_DIAG_ERROR,RADIO_DIAG_HTTP_READ_ERROR);ESP_LOGW(kTag,"Stream read error");break;}
+        if(!received){if(++empty_reads>3)break;vTaskDelay(pdMS_TO_TICKS(20));continue;}
+        radio_diagnostics_add(RADIO_DIAG_HTTP_READS,1);radio_diagnostics_add(RADIO_DIAG_HTTP_BYTES,received);
+        empty_reads=0;last_data=esp_timer_get_time();
+        if(reader->drain_only.load()){radio_diagnostics_add(RADIO_DIAG_PROBE_DRAINED,received);continue;}
+        std::size_t sent=0;int64_t wait_started=0;
+        while(sent<static_cast<std::size_t>(received)&&!reader->stop.load()&&
+              request_still_current(reader->generation,reader->station)){
+            const std::size_t count=reader->bytes.push(block+sent,received-sent);
+            sent+=count;
+            if(!count){
+                if(!wait_started)wait_started=esp_timer_get_time();
+                radio_diagnostics_set(RADIO_DIAG_WAITING_FOR_SPACE,1);vTaskDelay(pdMS_TO_TICKS(5));
+            }
+        }
+        radio_diagnostics_set(RADIO_DIAG_WAITING_FOR_SPACE,0);
+        if(wait_started)radio_diagnostics_max(RADIO_DIAG_MAX_SPACE_WAIT_US,static_cast<uint32_t>(std::min<int64_t>(esp_timer_get_time()-wait_started,UINT32_MAX)));
+    }
+    /* No reader/context access after publishing completion. The owner can
+     * safely release the context even before the idle task reaps this stack. */
+    reader->done.store(true,std::memory_order_release);
+    vTaskDelete(nullptr);
+}
+
+struct StreamIdentity {std::size_t station;uint32_t generation;};
+bool stream_current(void *context){const auto *s=static_cast<StreamIdentity *>(context);return request_still_current(s->generation,s->station);}
+uint8_t stream_volume(void *){return s_volume.load(std::memory_order_acquire);}
+void stream_buffering(bool buffering,void *context){
+    if(stream_current(context))radio_ui_set_playback(buffering?RadioPlaybackState::Buffering:RadioPlaybackState::Playing,buffering?"正在缓冲":"正在播放");
+}
+
+bool stream_station(std::size_t station,uint32_t generation,unsigned read_bytes,unsigned receive_probe_seconds=0) {
+    radio_diagnostics_begin();
+    radio_diagnostics_set(RADIO_DIAG_PROBE_MODE,receive_probe_seconds?1:0);
+    radio_diagnostics_set(RADIO_DIAG_READ_BYTES,read_bytes);
     const RadioStation preset = station_snapshot(station);
     if (!preset.url[0]) {
+        radio_diagnostics_set(RADIO_DIAG_ERROR,RADIO_DIAG_HTTP_OPEN_ERROR);radio_diagnostics_set(RADIO_DIAG_ACTIVE,0);
         ESP_LOGE(kTag, "Station %u has no stream URL", static_cast<unsigned>(station));
         return false;
     }
@@ -239,6 +343,7 @@ bool stream_station(std::size_t station, uint32_t generation) {
     config.crt_bundle_attach = esp_crt_bundle_attach;
     esp_http_client_handle_t client = esp_http_client_init(&config);
     if (!client) {
+        radio_diagnostics_set(RADIO_DIAG_ERROR,RADIO_DIAG_MEMORY_ERROR);radio_diagnostics_set(RADIO_DIAG_ACTIVE,0);
         ESP_LOGE(kTag, "HTTP client allocation failed");
         return false;
     }
@@ -250,64 +355,87 @@ bool stream_station(std::size_t station, uint32_t generation) {
     esp_audio_simple_dec_handle_t decoder = nullptr;
     uint8_t *input = nullptr;
     uint8_t *output = nullptr;
+    StreamReader *reader = nullptr;
+    RadioPcmOutput *pcm_output=nullptr;
+    StreamIdentity identity{station,generation};
+    bool drain_output=false;
 
     do {
         if (!radio_http_open(client, 4)) {
+            radio_diagnostics_set(RADIO_DIAG_ERROR,RADIO_DIAG_HTTP_OPEN_ERROR);
             ESP_LOGW(kTag, "Open failed: %s", preset.url);
             break;
         }
 
         const int status = esp_http_client_get_status_code(client);
         if (status < 200 || status >= 300) {
+            radio_diagnostics_set(RADIO_DIAG_ERROR,RADIO_DIAG_HTTP_OPEN_ERROR);
             ESP_LOGW(kTag, "HTTP status %d", status);
             break;
         }
 
         if(!request_still_current(generation,station))break;
+        capture_peer(client);
         esp_http_client_set_timeout_ms(client,100);
         decoder = open_mp3_decoder();
-        if (!decoder) break;
+        if (!decoder){radio_diagnostics_set(RADIO_DIAG_ERROR,RADIO_DIAG_DECODE_ERROR);break;}
         input = static_cast<uint8_t *>(malloc(kInputSize));
         output = static_cast<uint8_t *>(malloc(kOutputSize));
         if (!input || !output) {
+            radio_diagnostics_set(RADIO_DIAG_ERROR,RADIO_DIAG_MEMORY_ERROR);
             ESP_LOGE(kTag, "Not enough memory for stream buffers");
             break;
+        }
+        reader=new (std::nothrow) StreamReader;
+        if(!reader){radio_diagnostics_set(RADIO_DIAG_ERROR,RADIO_DIAG_MEMORY_ERROR);ESP_LOGE(kTag,"Read-ahead buffer allocation failed");break;}
+        reader->client=client;reader->station=station;reader->generation=generation;
+        reader->read_bytes=radio_probe_valid_read_size(read_bytes)?read_bytes:radio_buffers::kDefaultReadBytes;
+        if(xTaskCreate(stream_reader_task,"radio_http",6144,reader,4,nullptr)!=pdPASS){
+            radio_diagnostics_set(RADIO_DIAG_ERROR,RADIO_DIAG_MEMORY_ERROR);
+            ESP_LOGE(kTag,"HTTP reader task allocation failed");
+            delete reader;reader=nullptr;break;
         }
 
         radio_ui_set_playback(RadioPlaybackState::Buffering, "正在缓冲");
         ESP_LOGI(kTag,"Decoder buffers ready; free=%lu largest=%u",(unsigned long)esp_get_free_heap_size(),(unsigned)heap_caps_get_largest_free_block(MALLOC_CAP_8BIT));
         bool format_ready = false;
         bool decode_failed = false;
-        int applied_volume=-1;
         uint8_t source_channels = 1;
-        int empty_reads = 0;
-        int64_t last_data=esp_timer_get_time(),last_levels=0;
+        int64_t last_levels=0,probe_until=0;
+        bool probe_primed=false;unsigned probe_warm_frames=0;
+        RadioDecoderInput pending(input,kInputSize);
+        RadioPrebuffer prebuffer(kPrebufferSize,esp_timer_get_time(),radio_buffers::kStartupWaitUs);
         while (!decode_failed && request_still_current(generation, station)) {
-            if(!played_audio&&esp_timer_get_time()>first_audio_deadline)break;
-            if(now_seconds()!=s_last_status){
-                s_last_status=now_seconds();badge_network_status_t net;badge_network_status(&net);
-                radio_player_set_network(net.connected);radio_ui_set_network(net.connected);
-                refresh_battery();
-                if(s_dirty.load())flush_settings();
-            }
-            const int received = esp_http_client_read(client,
-                                                      reinterpret_cast<char *>(input),
-                                                      kInputSize);
-            if(received==-ESP_ERR_HTTP_EAGAIN){if(esp_timer_get_time()-last_data>8000000)break;continue;}
-            if (received < 0) {
-                ESP_LOGW(kTag, "Stream read error");
-                break;
-            }
-            if (received == 0) {
-                if (++empty_reads > 3) break;
-                vTaskDelay(pdMS_TO_TICKS(20));
+            if(radio_pcm_output_failed(pcm_output)){decode_failed=true;break;}
+            played_audio=played_audio||radio_pcm_output_played(pcm_output);
+            const std::size_t queued=reader->bytes.available();
+            radio_diagnostics_set(RADIO_DIAG_QUEUED_BYTES,queued);
+            if(probe_primed){
+                if(esp_timer_get_time()>=probe_until)break;
+                const std::size_t count=reader->bytes.discard(kReadAheadSize);
+                if(count)radio_diagnostics_add(RADIO_DIAG_PROBE_DRAINED,count);
+                else {if(reader->done.load(std::memory_order_acquire)&&!reader->bytes.available())break;vTaskDelay(1);}
                 continue;
             }
-            empty_reads = 0;last_data=esp_timer_get_time();
-
+            if(!played_audio&&esp_timer_get_time()>first_audio_deadline){radio_diagnostics_set(RADIO_DIAG_ERROR,RADIO_DIAG_START_TIMEOUT);break;}
+            if(prebuffer.waiting(queued,reader->done.load(std::memory_order_acquire),esp_timer_get_time())){
+                vTaskDelay(1);continue;
+            }
+            const std::size_t received=reader->bytes.pop(pending.tail(),pending.space());
+            if(!received){
+                if(reader->done.load(std::memory_order_acquire)){
+                    /* Completion can race the pop: drain its final publication. */
+                    if(reader->bytes.available())continue;
+                    break;
+                }
+                // The independent sink drains PCM reserve and owns underrun
+                // reporting. Resume decode on arrival, without a full refill.
+                vTaskDelay(1);continue;
+            }
+            pending.append(received);
             esp_audio_simple_dec_raw_t raw = {
-                .buffer = input,
-                .len = static_cast<uint32_t>(received),
+                .buffer = pending.data(),
+                .len = static_cast<uint32_t>(pending.size()),
                 .eos = false,
                 .consumed = 0,
                 .frame_recover = ESP_AUDIO_SIMPLE_DEC_RECOVERY_NONE,
@@ -319,10 +447,12 @@ bool stream_station(std::size_t station, uint32_t generation) {
                     .needed_size = 0,
                     .decoded_size = 0,
                 };
-                const uint32_t before = raw.len;
+                const int64_t decode_start=esp_timer_get_time();
                 const esp_audio_err_t result =
                     esp_audio_simple_dec_process(decoder, &raw, &frame);
+                radio_diagnostics_max(RADIO_DIAG_MAX_DECODE_US,static_cast<uint32_t>(std::min<int64_t>(esp_timer_get_time()-decode_start,UINT32_MAX)));
                 if (result == ESP_AUDIO_ERR_BUFF_NOT_ENOUGH) {
+                    radio_diagnostics_set(RADIO_DIAG_ERROR,RADIO_DIAG_DECODE_ERROR);
                     ESP_LOGE(kTag, "Decoder needs %u bytes, buffer has %u",
                              static_cast<unsigned>(frame.needed_size),
                              static_cast<unsigned>(kOutputSize));
@@ -331,23 +461,24 @@ bool stream_station(std::size_t station, uint32_t generation) {
                     break;
                 }
                 if (result != ESP_AUDIO_ERR_OK) {
+                    radio_diagnostics_set(RADIO_DIAG_ERROR,RADIO_DIAG_DECODE_ERROR);
                     ESP_LOGW(kTag, "MP3 decode failed: %d", result);
                     raw.len = 0;
                     decode_failed = true;
                     break;
                 }
-                if (raw.consumed > raw.len) raw.consumed = raw.len;
+                if(raw.consumed>raw.len||frame.decoded_size>kOutputSize){radio_diagnostics_set(RADIO_DIAG_ERROR,RADIO_DIAG_DECODE_ERROR);decode_failed=true;break;}
                 raw.buffer += raw.consumed;
                 raw.len -= raw.consumed;
 
                 if (frame.decoded_size > 0) {
                     esp_audio_simple_dec_info_t info = {};
-                    if (!format_ready &&
-                        esp_audio_simple_dec_get_info(decoder, &info) == ESP_AUDIO_ERR_OK) {
+                    if (!format_ready) {
+                        if(esp_audio_simple_dec_get_info(decoder,&info)!=ESP_AUDIO_ERR_OK){radio_diagnostics_set(RADIO_DIAG_ERROR,RADIO_DIAG_FORMAT_ERROR);decode_failed=true;break;}
                         source_channels = std::clamp<uint8_t>(info.channel, 1, 2);
                         if (info.channel<1 || info.channel>2 || info.bits_per_sample != 16 || info.sample_rate < 8000 ||
-                            info.sample_rate > 48000 ||
-                            bsp_audio_set_format(info.sample_rate, 16, 1) != ESP_OK) {
+                            info.sample_rate > 48000) {
+                            radio_diagnostics_set(RADIO_DIAG_ERROR,RADIO_DIAG_FORMAT_ERROR);
                             ESP_LOGE(kTag, "Unsupported stream format: %luHz/%ubit/%uch",
                                      static_cast<unsigned long>(info.sample_rate),
                                      info.bits_per_sample, source_channels);
@@ -355,41 +486,65 @@ bool stream_station(std::size_t station, uint32_t generation) {
                             decode_failed = true;
                             break;
                         }
-                        bsp_audio_set_volume(s_volume.load(std::memory_order_acquire));
+                        radio_diagnostics_set(RADIO_DIAG_SAMPLE_RATE,info.sample_rate);radio_diagnostics_set(RADIO_DIAG_CHANNELS,source_channels);
+                        pcm_output=radio_pcm_output_open({info.sample_rate,stream_current,stream_volume,stream_buffering,&identity});
+                        if(!pcm_output){decode_failed=true;break;}
                         format_ready = true;
-                        ESP_LOGI(kTag, "Playing %s at %luHz/%uch -> mono", preset.name,
+                        ESP_LOGI(kTag, "%s %s at %luHz/%uch -> mono",receive_probe_seconds?"Preparing receive probe":"Playing",preset.name,
                                  static_cast<unsigned long>(info.sample_rate), source_channels);
                     }
+                    if(receive_probe_seconds&&format_ready){
+                        // Prime the same lazy MP3 core, codec, PCM queue and sink
+                        // stack, then retain them without further decoding/output.
+                        // The control therefore does not gain a large heap reserve.
+                        if(++probe_warm_frames<8)continue;
+                        probe_primed=true;probe_until=esp_timer_get_time()+static_cast<int64_t>(receive_probe_seconds)*1000000;
+                        radio_diagnostics_set(RADIO_DIAG_PROBE_MODE,2);reader->drain_only.store(true);
+                        raw.len=0;radio_ui_set_playback(RadioPlaybackState::Connecting,"RX TEST");break;
+                    }
                     if (format_ready && frame.decoded_size<=kOutputSize) {
-                        const int current_volume=s_volume.load();
-                        if(current_volume!=applied_volume){bsp_audio_set_volume(current_volume);applied_volume=current_volume;}
                         const std::size_t mono_bytes =
                             radio_downmix(reinterpret_cast<int16_t *>(frame.buffer), frame.decoded_size, source_channels);
-                        if (bsp_audio_write(frame.buffer, mono_bytes) != ESP_OK) {decode_failed=true;radio_ui_set_playback(RadioPlaybackState::Error,"音频输出失败");break;}
+                        if(!mono_bytes){radio_diagnostics_set(RADIO_DIAG_ERROR,RADIO_DIAG_OUTPUT_ERROR);decode_failed=true;break;}
+                        if(!radio_pcm_output_write(pcm_output,frame.buffer,mono_bytes)){decode_failed=true;break;}
+                        // The long-running stream does not return to the outer
+                        // power tick. Keep real playback from being timed as idle.
+                        badge_power_audio_activity();
+                        played_audio=played_audio||radio_pcm_output_played(pcm_output);
                         if(esp_timer_get_time()-last_levels>=100000){calculate_levels(frame.buffer,mono_bytes,1);last_levels=esp_timer_get_time();}
-                        if (!played_audio) {
-                            played_audio = true;
-                            radio_ui_set_playback(RadioPlaybackState::Playing, "正在播放");
-                        }
                     }
                 }
 
-                if (raw.len == before || raw.consumed == 0) {
-                    // The parser may cache a short incomplete tail. A fresh network
-                    // block is required; keeping this block would spin forever.
-                    break;
-                }
+                /* Cached output is progress even if no new input was consumed.
+                 * Only a call with neither output nor consumption needs more data. */
+                if(!raw.consumed&&!frame.decoded_size)break;
+            }
+            if(!pending.consume(pending.size()-raw.len)||!pending.space()){
+                radio_diagnostics_set(RADIO_DIAG_ERROR,RADIO_DIAG_INPUT_STALL);
+                ESP_LOGW(kTag,"MP3 parser made no progress within input limit");decode_failed=true;
             }
         }
+        drain_output=!decode_failed&&request_still_current(generation,station)&&reader->done.load(std::memory_order_acquire)&&!reader->bytes.available();
     } while (false);
 
+    if(reader)reader->stop.store(true);
+    played_audio=radio_pcm_output_close(pcm_output,drain_output)||played_audio;
+    if(reader){
+        while(!reader->done.load(std::memory_order_acquire))vTaskDelay(pdMS_TO_TICKS(5));
+        delete reader;
+    }
     if (decoder) esp_audio_simple_dec_close(decoder);
-    if(played_audio){static const int16_t silence[512]={};bsp_audio_write(silence,sizeof(silence));}
+    radio_diagnostics_set(RADIO_DIAG_QUEUED_BYTES,0);
+    radio_diag_snapshot_t stats;radio_diagnostics_get(&stats);
+    ESP_LOGI(kTag,"Stream ended; rebuffer events=%lu max PCM feed gap=%lu us min heap=%lu writer stack=%lu",
+             (unsigned long)stats.values[RADIO_DIAG_REBUFFERS],(unsigned long)stats.values[RADIO_DIAG_MAX_FEED_GAP_US],
+             (unsigned long)stats.values[RADIO_DIAG_MIN_FREE_HEAP],(unsigned long)stats.values[RADIO_DIAG_WRITER_STACK_FREE]);
     radio_ui_set_audio_levels(nullptr,0);
     free(output);
     free(input);
     esp_http_client_close(client);
     esp_http_client_cleanup(client);
+    radio_diagnostics_set(RADIO_DIAG_ACTIVE,0);
     return played_audio;
 }
 
@@ -403,7 +558,7 @@ void player_task(void *) {
         badge_network_status_t net;badge_network_status(&net);radio_player_set_network(net.connected);
         radio_ui_set_network(net.connected);if(!badge_power_screen_off())refresh_battery();
         if(s_dirty.load())flush_settings();
-        if(s_deadline.load() && radio_timer_expired(s_deadline.load(),now_seconds())){s_deadline.store(0);s_wanted_playing.store(false);}
+        if(s_deadline.load() && radio_timer_expired(s_deadline.load(),now_seconds())){s_deadline.store(0);s_wanted_playing.store(false);cancel_probe_request();}
         const uint32_t requested=s_catalog_request.load();
         if(net.connected && catalog_seen!=requested){
             catalog_seen=requested;radio_ui_set_playback(RadioPlaybackState::Connecting,"正在查找城市电台");
@@ -417,8 +572,29 @@ void player_task(void *) {
             else {radio_player_replace_stations_resuming(nullptr,0);radio_ui_set_location("精选电台");radio_ui_set_playback(RadioPlaybackState::Connecting,"使用精选电台");}
         }
         if (!s_network_connected.load(std::memory_order_acquire)) {
+            cancel_probe_request();
             radio_ui_set_playback(RadioPlaybackState::Stopped, "等待网络");
             vTaskDelay(pdMS_TO_TICKS(200));
+            continue;
+        }
+        radio_probe_request_t probe{};std::size_t selected=0;uint32_t probe_generation=0;
+        portENTER_CRITICAL(&s_probe_mux);
+        const bool probe_pending=radio_probe_take(&probe);
+        if(probe_pending){selected=s_probe_station;probe_generation=s_probe_generation;}
+        portEXIT_CRITICAL(&s_probe_mux);
+        if(probe_pending){
+            const uint32_t generation=probe_generation;
+            if(!s_wanted_playing.load()&&!s_stopping.load()&&generation==s_generation.load()&&selected==s_station_index.load()){
+                s_receive_probe_running.store(true);
+                if(generation==s_generation.load()&&!s_wanted_playing.load()){
+                    s_stream_active.store(true);badge_power_audio_tick(true);badge_network_xiaozhi_power(true,true);
+                    (void)stream_station(selected,generation,probe.read_bytes,probe.seconds);
+                    badge_network_xiaozhi_power(false,false);s_stream_active.store(false);
+                }
+                s_receive_probe_running.store(false);
+            }
+            finish_probe_request();
+            if(!s_stopping.load()&&!s_wanted_playing.load())radio_ui_set_playback(RadioPlaybackState::Stopped,"已暂停");
             continue;
         }
         if (!s_wanted_playing.load(std::memory_order_acquire)) {
@@ -435,7 +611,10 @@ void player_task(void *) {
         }
         s_stream_active.store(true, std::memory_order_release);
         badge_power_audio_tick(true);
-        const bool played = stream_station(station, generation);
+        // Modem sleep's DTIM batching can exceed the high-rate PCM reserve.
+        badge_network_xiaozhi_power(true,true);
+        const bool played = stream_station(station,generation,s_read_bytes.load());
+        badge_network_xiaozhi_power(false,false);
         s_stream_active.store(false, std::memory_order_release);
         if (!request_still_current(generation, station)) continue;
 
@@ -467,13 +646,15 @@ void player_task(void *) {
         radio_ui_set_playback(RadioPlaybackState::Error, "连接失败，正在重试");
         for(int i=0;i<25&&!s_stopping.load()&&request_still_current(generation,station);i++)vTaskDelay(pdMS_TO_TICKS(100));
     }
-    flush_settings();s_stream_active.store(false);
+    flush_settings();s_stream_active.store(false);s_receive_probe_running.store(false);cancel_probe_request();
     badge_power_leave();
     ESP_LOGI(kTag,"Stopped; free heap=%lu stack remaining=%u",(unsigned long)esp_get_free_heap_size(),(unsigned)uxTaskGetStackHighWaterMark(nullptr));
     xSemaphoreGive(s_done);vTaskDelete(nullptr);
 }
 
 void flush_settings() {
+    // Stream playback never calls this: cache-disabled NVS commits interrupt
+    // Flash-resident I2S/decoder code even when HTTP has been decoupled.
     if(!s_dirty.exchange(false))return;
     save_setting("volume",s_volume.load());save_setting("city",s_city.load());
     save_setting("station",static_cast<uint8_t>(s_station_index.load()));
@@ -483,6 +664,7 @@ void flush_settings() {
 
 bool radio_player_init(int preset) {
     if(s_player_task)return true;
+    s_service_ready.store(false);s_receive_probe_running.store(false);s_read_bytes.store(radio_buffers::kDefaultReadBytes);cancel_probe_request();
     s_station_mutex=xSemaphoreCreateMutex();s_done=xSemaphoreCreateBinary();
     if(!s_station_mutex||!s_done)goto fail;
     s_directory.replace(nullptr,0);
@@ -500,7 +682,8 @@ bool radio_player_init(int preset) {
     if(!s_audio_ready||esp_mp3_dec_register()!=ESP_AUDIO_ERR_OK)goto fail;
     radio_ui_set_station(s_station_index.load(),s_station_count.load(),station_snapshot(s_station_index.load()));
     radio_ui_set_volume(s_volume.load());
-    if(xTaskCreate(player_task,"badge_radio",10240,nullptr,4,&s_player_task)==pdPASS)return true;
+    // Decode outranks LVGL (4); the independent bounded PCM sink runs at 6.
+    if(xTaskCreate(player_task,"badge_radio",10240,nullptr,5,&s_player_task)==pdPASS){s_service_ready.store(true);return true;}
 fail:
     (void)bsp_audio_sleep();
     esp_audio_dec_unregister(ESP_AUDIO_TYPE_MP3);
@@ -511,6 +694,7 @@ fail:
 }
 
 bool radio_player_shutdown(uint32_t timeout_ms) {
+    s_service_ready.store(false);s_read_bytes.store(radio_buffers::kDefaultReadBytes);cancel_probe_request();
     if(!s_player_task)return true;
     s_stopping.store(true);s_wanted_playing.store(false);s_generation.fetch_add(1);radio_catalog_cancel();
     radio_ui_set_playback(RadioPlaybackState::Stopped,"正在停止");
@@ -519,6 +703,20 @@ bool radio_player_shutdown(uint32_t timeout_ms) {
     vSemaphoreDelete(s_station_mutex);s_station_mutex=nullptr;vSemaphoreDelete(s_done);s_done=nullptr;
     s_deadline.store(0);return true;
 }
+extern "C" bool radio_player_probe_available(void){
+    return s_service_ready.load()&&s_network_connected.load()&&!s_stopping.load()&&!s_wanted_playing.load()&&!s_stream_active.load()&&!radio_probe_busy();
+}
+extern "C" bool radio_player_receive_probe(unsigned seconds,unsigned read_bytes){
+    portENTER_CRITICAL(&s_probe_mux);
+    const bool accepted=radio_probe_reserve(s_service_ready.load()&&s_network_connected.load()&&!s_stopping.load(),!s_wanted_playing.load(),s_stream_active.load(),seconds,read_bytes);
+    if(accepted){s_probe_generation=s_generation.load();s_probe_station=s_station_index.load();}
+    portEXIT_CRITICAL(&s_probe_mux);return accepted;
+}
+extern "C" bool radio_player_set_read_size(unsigned read_bytes){
+    if(!radio_player_probe_available()||!radio_probe_valid_read_size(read_bytes))return false;
+    s_read_bytes.store(read_bytes);return true;
+}
+extern "C" unsigned radio_player_next_read_size(void){return s_read_bytes.load();}
 void radio_player_set_city(unsigned city){s_city.store(city%8);s_dirty.store(true);s_catalog_request.fetch_add(1);s_generation.fetch_add(1);radio_catalog_cancel();}
 unsigned radio_player_city(){return s_city.load();}
 void radio_player_set_timer(unsigned minutes){s_deadline.store(minutes?now_seconds()+minutes*60:0);}

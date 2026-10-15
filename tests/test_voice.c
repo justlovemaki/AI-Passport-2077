@@ -27,6 +27,8 @@ int main(void) {
         }
         assert(n.clip==0);voice_navigation_move(&n,-1);assert(n.clip==voice_packs[p].count-1);
         voice_navigation_volume(&n);assert(n.view==VOICE_VOLUME);voice_navigation_volume(&n);assert(n.previous==VOICE_CLIPS);
+        n.volume=40;voice_navigation_move(&n,1);assert(n.volume==45);
+        voice_navigation_move(&n,-1);assert(n.volume==40);
         for(int i=0;i<40;i++){voice_navigation_move(&n,1);}assert(n.volume==100);
         for(int i=0;i<40;i++){voice_navigation_move(&n,-1);}assert(n.volume==0);
         voice_navigation_t before=n;

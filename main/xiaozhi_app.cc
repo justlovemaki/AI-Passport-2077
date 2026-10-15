@@ -8,6 +8,7 @@
 #include "xiaozhi_wire.h"
 #include "xiaozhi_buffer.h"
 #include "xiaozhi_volume.h"
+#include "badge_volume.h"
 #include "xiaozhi_caption.h"
 #include "xiaozhi_text.h"
 #include "xiaozhi_dispatch.h"
@@ -1099,7 +1100,14 @@ probe_ready=false;
 #endif
 if(done){vSemaphoreDelete(done);done=nullptr;}yao_location_voice_active(false);return ESP_OK;}
 extern "C" bool demo_xiaozhi_set_volume(unsigned volume){if(!started||stopping||volume>100)return false;wanted_volume.store(volume);return true;}
-extern "C" void demo_xiaozhi_key(bsp_btn_t button,bsp_btn_ev_t event){if(!started||stopping||event!=BSP_BTN_CLICK)return;if(button==BSP_BTN_OK)clicks.fetch_add(1);else{unsigned v=wanted_volume.load();wanted_volume=button==BSP_BTN_UP?std::min(100u,v+10):v>10?v-10:0;}}
+extern "C" void demo_xiaozhi_key(bsp_btn_t button,bsp_btn_ev_t event){
+    if(!started||stopping||event!=BSP_BTN_CLICK)return;
+    if(button==BSP_BTN_OK)clicks.fetch_add(1);
+    else if(button==BSP_BTN_UP||button==BSP_BTN_DOWN){
+        const int value=static_cast<int>(wanted_volume.load());
+        wanted_volume.store(static_cast<unsigned>(badge_volume_adjust(value,button==BSP_BTN_UP?1:-1)));
+    }
+}
 
 extern "C" bool demo_xiaozhi_return_context(badge_return_context_t *context){
     xz_state_t state=return_state.load();

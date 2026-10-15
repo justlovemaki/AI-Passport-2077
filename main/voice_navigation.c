@@ -1,4 +1,5 @@
 #include "voice_navigation.h"
+#include "badge_volume.h"
 void voice_navigation_init(voice_navigation_t *n) {*n=(voice_navigation_t){.volume=40};}
 bool voice_navigation_select(voice_navigation_t *n,unsigned clip) {
     if(clip>=VOICE_CLIP_COUNT)return false;
@@ -9,7 +10,7 @@ bool voice_navigation_select(voice_navigation_t *n,unsigned clip) {
 }
 unsigned voice_navigation_first(unsigned selected) {return selected<6?0:selected-5;}
 void voice_navigation_move(voice_navigation_t *n,int direction) {
-    if(n->view==VOICE_VOLUME) {n->volume+=direction*5;if(n->volume<0)n->volume=0;if(n->volume>100)n->volume=100;return;}
+    if(n->view==VOICE_VOLUME) {n->volume=badge_volume_adjust(n->volume,direction);return;}
     unsigned *selected=n->view==VOICE_PACKS?&n->pack:&n->clip;
     unsigned count=n->view==VOICE_PACKS?VOICE_PACK_COUNT:voice_packs[n->pack].count;
     if(direction<0) {*selected=*selected?*selected-1:count-1;}

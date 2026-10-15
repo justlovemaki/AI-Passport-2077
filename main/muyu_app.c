@@ -1,5 +1,6 @@
 #include "muyu_app.h"
 #include "muyu_logic.h"
+#include "muyu_volume_store.h"
 #include "muyu_ui.h"
 #include "badge_power.h"
 #include "bsp_audio.h"
@@ -117,7 +118,7 @@ static void prepare_audio(void)
 static void load_state(void)
 {
     uint32_t total = 0;
-    uint8_t speed = 1, volume = 2;
+    uint8_t speed = 1, volume = MUYU_VOLUME_DEFAULT;
     esp_err_t err = nvs_flash_init();
     if (err == ESP_OK) err = nvs_open("zen_muyu_v1", NVS_READWRITE, &storage);
     storage_open = err == ESP_OK;
@@ -125,12 +126,12 @@ static void load_state(void)
     if (storage_open) {
         esp_err_t a = nvs_get_u32(storage, "total", &total);
         esp_err_t b = nvs_get_u8(storage, "speed", &speed);
-        esp_err_t c = nvs_get_u8(storage, "volume", &volume);
+        esp_err_t c = muyu_volume_load(storage,&volume);
         /* Wrong types/corrupt records remain visible and are never overwritten. */
         if ((a != ESP_OK && a != ESP_ERR_NVS_NOT_FOUND) ||
             (b != ESP_OK && b != ESP_ERR_NVS_NOT_FOUND) ||
             (c != ESP_OK && c != ESP_ERR_NVS_NOT_FOUND) ||
-            total > MUYU_COUNT_MAX || speed >= MUYU_SPEED_COUNT || volume >= MUYU_VOLUME_COUNT) {
+            total > MUYU_COUNT_MAX || speed >= MUYU_SPEED_COUNT) {
             nvs_close(storage);
             storage_open = storage_ok = false;
             ESP_LOGE(TAG, "Stored record invalid; preserving NVS");
@@ -145,7 +146,7 @@ static void save_state(bool explicit_save)
     if (err == ESP_OK && state.dirty) {
         err = nvs_set_u32(storage, "total", state.total);
         if (err == ESP_OK) err = nvs_set_u8(storage, "speed", state.speed);
-        if (err == ESP_OK) err = nvs_set_u8(storage, "volume", state.volume);
+        if (err == ESP_OK) err = muyu_volume_store(storage,state.volume);
         if (err == ESP_OK) err = nvs_commit(storage);
     }
     storage_ok = err == ESP_OK;

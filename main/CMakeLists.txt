@@ -28,11 +28,11 @@ if(NOT wake_result EQUAL 0)
 endif()
 idf_component_register(
     SRCS "main.c" "badge_power.c" "badge_navigation.c" "badge_ui.c" "badge_theme.c" "badge_header.c" "game_registry.c"
-         "muyu_app.c" "muyu_logic.c" "muyu_ui.c"
+         "muyu_app.c" "muyu_logic.c" "muyu_ui.c" "muyu_volume_store.c"
          "shengbei_app.c" "muse_app.cc" "muse_style.c"
          "yao_core.c" "yao_text_data.c" "yao_service.c" "yao_time.c" "yao_location.c" "yao_geo.c" "yao_app.c" "yao_ui.c"
          "xiaozhi_wake.c" "xiaozhi_app.cc" "xiaozhi_tools.c" "badge_control.c" "badge_reminder.c" "badge_alarms.c" "badge_alarm_service.c" "profile_edit.c" "profile_text.c" "badge_alert.c" "radio_tool_catalog.cc" "xiaozhi_wire.c" "xiaozhi_buffer.c" "xiaozhi_ui.c" "xiaozhi_style.c" "xiaozhi_face_assets.c" "xiaozhi_text.c" "font_xiaozhi_14.c"
-         "radio_app.cc" "radio_player.cc" "radio_catalog.cc" "radio_directory.cc" "radio_presets.cc" "radio_http.cc" "radio_logic.cc" "radio_controls.c" "radio_status.cc" "radio_ui.cc" "font_radio_14.c"
+         "radio_app.cc" "radio_player.cc" "radio_catalog.cc" "radio_directory.cc" "radio_presets.cc" "radio_http.cc" "radio_logic.cc" "radio_controls.c" "radio_status.cc" "radio_diagnostics.c" "radio_pcm_output.cc" "radio_probe.c" "radio_ui.cc" "font_radio_14.c"
          "voice_app.c" "voice_navigation.c" "voice_stream.c" "voice_ui.c" "font_voice_14.c" "${voice_build_dir}/voice_catalog.c"
          "font_ui_14.c" "font_muyu_14.c" "font_muyu_22.c"
          "font_badge_10.c" "font_badge_28.c"

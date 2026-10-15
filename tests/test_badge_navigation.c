@@ -217,7 +217,11 @@ int main(void) {
     assert(badge_navigation_handle(&s,BADGE_OK)==BADGE_REDRAW&&s.page==BADGE_AI_VOLUME_PAGE);
     s.ai_volume=100;assert(badge_navigation_handle(&s,BADGE_UP)==BADGE_AI_VOLUME&&s.ai_volume==100);
     s.ai_volume=0;assert(badge_navigation_handle(&s,BADGE_DOWN)==BADGE_AI_VOLUME&&s.ai_volume==0);
-    assert(badge_navigation_handle(&s,BADGE_UP)==BADGE_AI_VOLUME&&s.ai_volume==10);
+    assert(badge_navigation_handle(&s,BADGE_UP)==BADGE_AI_VOLUME&&s.ai_volume==5);
+    s.ai_volume=95;assert(badge_navigation_handle(&s,BADGE_UP)==BADGE_AI_VOLUME&&s.ai_volume==100);
+    assert(badge_navigation_handle(&s,BADGE_DOWN)==BADGE_AI_VOLUME&&s.ai_volume==95);
+    s.ai_volume=63;assert(badge_navigation_handle(&s,BADGE_UP)==BADGE_AI_VOLUME&&s.ai_volume==68);
+    assert(badge_navigation_handle(&s,BADGE_DOWN)==BADGE_AI_VOLUME&&s.ai_volume==63);
     badge_navigation_handle(&s,BADGE_BACK);assert(s.page==BADGE_AI_SETTINGS);
     s.ai_selected=0;badge_navigation_handle(&s,BADGE_UP);assert(s.ai_selected==4);
     assert(badge_navigation_handle(&s,BADGE_OK)==BADGE_AI_STYLE&&s.ai_style==1);

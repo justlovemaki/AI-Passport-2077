@@ -14,6 +14,7 @@ ROOT = Path(__file__).resolve().parent.parent
 FULL_SHA_RE = re.compile(r"^[0-9a-f]{40}$")
 MARKDOWN_LINK_RE = re.compile(r"!?\[[^\]]*\]\(([^)]+)\)")
 CJK_RE = re.compile(r"[\u3400-\u4dbf\u4e00-\u9fff]")
+SEMVER_RE = re.compile(r"^[0-9]+\.[0-9]+\.[0-9]+$")
 SECRET_PATTERNS = {
     "GitHub token": re.compile(r"(?:ghp_|github_pat_)[A-Za-z0-9_]{20,}"),
     "AWS access key": re.compile(r"AKIA[0-9A-Z]{16}"),
@@ -131,6 +132,27 @@ def check_required_files(errors: list[str]) -> None:
             errors.append(
                 f"{path.name}: root Markdown must move to docs/ or .github/"
             )
+
+
+def check_firmware_version(errors: list[str]) -> None:
+    targets = (
+        ("main/badge_profile.h", re.compile(r'#define\s+BADGE_VERSION\s+"([^"]+)"')),
+        ("README.md", re.compile(r'> Firmware Version: \*\*v([^*]+)\*\*')),
+        ("README.zh_CN.md", re.compile(r'> 固件版本：\*\*v([^*]+)\*\*')),
+    )
+    versions: list[tuple[str, str]] = []
+    for name, pattern in targets:
+        path = ROOT / name
+        if not path.is_file():
+            errors.append(f"missing firmware version target: {name}")
+            continue
+        matches = pattern.findall(path.read_text(encoding="utf-8"))
+        if len(matches) != 1 or not SEMVER_RE.fullmatch(matches[0]):
+            errors.append(f"{name}: require exactly one numeric X.Y.Z firmware version")
+            continue
+        versions.append((name, matches[0]))
+    if len(versions) == len(targets) and len({version for _, version in versions}) != 1:
+        errors.append("firmware version mismatch: " + ", ".join(f"{name}={version}" for name, version in versions))
 
 
 def check_markdown_links(
@@ -252,6 +274,7 @@ def main() -> int:
     vendored_roots = vendored_document_roots(errors)
     files = text_files()
     check_required_files(errors)
+    check_firmware_version(errors)
     check_markdown_links(files, errors, vendored_roots)
     check_document_languages(files, errors, vendored_roots)
     check_action_pins(errors)

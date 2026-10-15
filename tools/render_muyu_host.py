@@ -159,7 +159,7 @@ int main(int argc,char **argv) {
     render_profile_help();tick(20);
     destroy_main_menu();
     muyu_ui_create();
-    muyu_state_t s; muyu_init(&s,108,1,2,0);
+    muyu_state_t s; muyu_init(&s,108,1,MUYU_VOLUME_DEFAULT,0);
     muyu_ui_refresh(&s,86,true,true,true);
     tick(20);
     FILE *f=fopen(argv[1],"wb");assert(f);fwrite(frame,sizeof(frame),1,f);fclose(f);

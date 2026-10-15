@@ -74,6 +74,7 @@ int main(void){
     assert(!xz_retry_delay(XZ_FAULT_MEMORY,0)&&!xz_retry_delay(XZ_FAULT_SERVER_END,0));
     assert(!xz_retry_delay(XZ_FAULT_QUEUE,0)&&!xz_retry_delay(XZ_FAULT_PROTOCOL,0));
     assert(xz_volume_valid(0,40)==0&&xz_volume_valid(100,40)==100);
+    assert(xz_volume_valid(63,40)==63); // Existing exact voice-command percentages are not quantized.
     assert(xz_volume_valid(255,60)==60&&xz_volume_valid(255,255)==40);
     xz_volume_t v={40,40,0,0};assert(!xz_volume_due(&v,2000000,true,true));
     xz_volume_observe(&v,50,100);xz_volume_observe(&v,60,500000);

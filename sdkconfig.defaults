@@ -46,6 +46,12 @@ CONFIG_ESP_WIFI_DYNAMIC_RX_MGMT_BUFFER=y
 # --- 系统 ---
 CONFIG_FREERTOS_HZ=1000
 
+# Local UTC continues during sleep/offline; Wi-Fi only calibrates the clock.
+CONFIG_LIBC_TIME_SYSCALL_USE_RTC_HRT=y
+# Request asynchronous time sync as soon as an IP is obtained, also on reconnect.
+CONFIG_LWIP_SNTP_STARTUP_DELAY=n
+CONFIG_LWIP_SNTP_UPDATE_DELAY=3600000
+
 # The ESP32-C3 shares instruction and data SRAM. Muse's official AI Passport
 # overlay keeps these non-cache-disabled paths in flash, returning roughly
 # 45 KiB to the heap used by TLS, Noise and I2S. I2S itself remains IRAM-safe.

@@ -1,6 +1,8 @@
+#ifdef BADGE_NETWORK_HOST_TEST
+#include "badge_network_test_stubs.h"
+#else
 #include "badge_network.h"
 #include "yao_time.h"
-#include "badge_network_rules.h"
 #include "profile_protocol.h"
 #include "esp_wifi.h"
 #include "esp_wifi_default.h"
@@ -18,6 +20,8 @@
 #include "freertos/semphr.h"
 #include "freertos/task.h"
 #include "lwip/sockets.h"
+#endif
+#include "badge_network_rules.h"
 #include <stdatomic.h>
 #include <ctype.h>
 #include <string.h>
@@ -36,12 +40,17 @@ static httpd_handle_t server;
 static nvs_handle_t nvs;
 static bool nvs_ready;
 static atomic_bool disconnected;
+/* Coalesce key press/click probes, including a probe already being processed. */
+static atomic_bool wake_probe_pending;
 static atomic_uint last_http;
 static char web_token[33];
 static char setup_password[13];
 static unsigned retries;
 static int64_t retry_at;
-enum {CMD_CONNECT=1,CMD_TOGGLE,CMD_SCAN,CMD_START_SETUP,CMD_POWER,CMD_ENTROPY,CMD_CLOSE_AP,CMD_WAKE_PROBE};
+/* Worker-owned: navigation/wake events must not cancel a fresh STA attempt. */
+static int64_t probe_at;
+#define CONNECT_PROBE_GRACE_US 15000000LL
+enum {CMD_CONNECT=1,CMD_TOGGLE,CMD_SCAN,CMD_START_SETUP,CMD_POWER,CMD_ENTROPY,CMD_CLOSE_AP,CMD_WAKE_PROBE,CMD_AUTOCONNECT};
 static atomic_bool onboarding;
 static atomic_int desired_ps;
 static atomic_bool standby_ps;
@@ -104,8 +113,12 @@ static void event(void *arg,esp_event_base_t base,int32_t id,void *data){
             nvs_commit(nvs);
         }
         unlock();
+        /* The local UTC clock keeps running offline. Every obtained IP starts
+         * asynchronous calibration; never clear an existing time while waiting.
+         * Tracked defaults disable SNTP's randomized startup delay. */
         if(!esp_sntp_enabled()){
             esp_sntp_setoperatingmode(ESP_SNTP_OPMODE_POLL);
+            esp_sntp_set_sync_mode(SNTP_SYNC_MODE_IMMED);
             esp_sntp_setservername(0,"ntp.aliyun.com");
             esp_sntp_init();
         }else esp_sntp_restart();
@@ -168,11 +181,13 @@ static void connect_saved(void){
         esp_wifi_disconnect();
         e=esp_wifi_set_config(WIFI_IF_STA,&c);
     }
+    probe_at=esp_timer_get_time()+CONNECT_PROBE_GRACE_US;
     if(e==ESP_OK)e=esp_wifi_connect();
-    message(e==ESP_OK?"正在连接...":"连接设置失败");retry_at=esp_timer_get_time()+5000000;
+    message(e==ESP_OK?"正在连接...":"连接设置失败");retry_at=probe_at;
 }
 static void auto_roam_and_connect(void){
     if(wifi_store.count==0)return;
+    probe_at=esp_timer_get_time()+CONNECT_PROBE_GRACE_US;
     ESP_LOGI("badge_network","Auto-roam check triggered (known count=%u)...", (unsigned)wifi_store.count);
     message("正在搜寻已知 Wi-Fi...");
     
@@ -286,9 +301,12 @@ static void toggle_ap(void){
     snprintf(web_token,sizeof(web_token),"%08lX%08lX%08lX%08lX",(unsigned long)random[0],(unsigned long)random[1],(unsigned long)random[2],(unsigned long)random[3]);
     wifi_config_t config={0};memcpy(config.ap.ssid,s.ap_ssid,strlen(s.ap_ssid));config.ap.ssid_len=strlen(s.ap_ssid);
     memcpy(config.ap.password,setup_password,12);config.ap.channel=1;config.ap.max_connection=2;config.ap.authmode=WIFI_AUTH_WPA2_PSK;
+    /* esp_wifi_set_config can reject AP configuration while STA is connecting.
+     * Offline setup must cancel that attempt, not wait for a router to appear. */
+    if(!s.connected)(void)esp_wifi_disconnect();
     e=esp_wifi_set_mode(WIFI_MODE_APSTA);if(e==ESP_OK)e=esp_wifi_set_config(WIFI_IF_AP,&config);
     if(e==ESP_OK){lock();state.active=true;strcpy(state.ap_password,setup_password);unlock();atomic_store(&last_http,(unsigned)(esp_timer_get_time()/1000000));e=open_server();}
-    if(e!=ESP_OK){close_ap();message("热点开启失败");}else message("热点已就绪");
+    if(e!=ESP_OK){ESP_LOGW("badge_network","SoftAP start failed: %s",esp_err_to_name(e));close_ap();message("热点开启失败");}else message("热点已就绪");
 }
 static void scan_nearby(void){
     badge_scan_entry_t results[BADGE_SCAN_LIMIT];size_t count=0;
@@ -361,17 +379,21 @@ static void worker(void *arg){
         if(xQueueReceive(commands,&command,pdMS_TO_TICKS(1000))==pdTRUE){
             if(atomic_load(&shutdown_requested))break;
             if(command==CMD_CONNECT)connect_saved();else if(command==CMD_SCAN)scan_nearby();
+            else if(command==CMD_AUTOCONNECT){badge_network_status_t current;badge_network_status(&current);if(!current.active&&!current.connected&&!probe_at)connect_saved();}
             else if(command==CMD_START_SETUP){badge_network_status_t current;badge_network_status(&current);if(!current.active)toggle_ap();}
             else if(command==CMD_CLOSE_AP)close_ap();
             else if(command==CMD_TOGGLE)toggle_ap();
             else if(command==CMD_ENTROPY)(void)start();
             else if(command==CMD_WAKE_PROBE){
                 badge_network_status_t cur;badge_network_status(&cur);
-                if(!cur.connected && !cur.active && wifi_store.count > 0 && atomic_load(&desired_ps) == 0){
+                /* Power policy selects modem sleep, not which page may connect.
+                 * Press/click/wake bursts share the current attempt's grace. */
+                if(!cur.connected && !cur.active && wifi_store.count > 0 && esp_timer_get_time()>=probe_at){
                     retries = 0; /* Reset retry counter so new attempts begin immediately */
                     auto_roam_and_connect();
                     retry_at = esp_timer_get_time() + 15000000LL;
                 }
+                atomic_store(&wake_probe_pending,false);
             }
         }
         int policy=badge_network_power_policy(atomic_load(&desired_ps),atomic_load(&standby_ps));
@@ -386,7 +408,10 @@ static void worker(void *arg){
         if(setup==BADGE_SETUP_START)toggle_ap();
         if(setup==BADGE_SETUP_EXTEND)atomic_store(&last_http,now);
         if(setup==BADGE_SETUP_CLOSE)close_ap();
-        if(atomic_load(&disconnected)&&s.ssid[0]&&!s.connected&&esp_timer_get_time()>retry_at){
+        /* Keep the setup channel stable. Explicit CMD_SCAN/CMD_CONNECT from
+         * the configuration page still work; background retries/roaming wait. */
+        badge_network_status(&s);
+        if(atomic_load(&disconnected)&&s.ssid[0]&&!s.connected&&!s.active&&esp_timer_get_time()>retry_at){
             retries++;
             /* If we have multiple saved Wi-Fis:
                Retry the current network 3 times with progressive delays:
@@ -408,6 +433,7 @@ static void worker(void *arg){
                     retry_at = esp_timer_get_time() + 15000000LL;
                 }
             } else {
+                probe_at=esp_timer_get_time()+CONNECT_PROBE_GRACE_US;
                 esp_wifi_connect();
                 message("正在重新连接...");
                 int64_t delay_us = (retries == 1) ? 15000000LL :
@@ -426,15 +452,18 @@ esp_err_t badge_network_shutdown(void){
     int64_t until=esp_timer_get_time()+12000000;while(!atomic_load(&shutdown_done)&&esp_timer_get_time()<until)vTaskDelay(pdMS_TO_TICKS(20));
     return atomic_load(&shutdown_done)?ESP_OK:ESP_ERR_TIMEOUT;
 }
-esp_err_t badge_network_toggle(void){int cmd=CMD_TOGGLE;return commands&&!atomic_load(&shutdown_requested)&&xQueueSend(commands,&cmd,0)==pdTRUE?ESP_OK:ESP_ERR_INVALID_STATE;}
+esp_err_t badge_network_toggle(void){int cmd=CMD_TOGGLE;return commands&&!atomic_load(&shutdown_requested)&&xQueueSendToFront(commands,&cmd,0)==pdTRUE?ESP_OK:ESP_ERR_INVALID_STATE;}
 bool badge_network_entropy_ready(void){return atomic_load(&rf_started)&&(unsigned)((unsigned)(esp_timer_get_time()/1000)-atomic_load(&rf_started_ms))>=100;}
 esp_err_t badge_network_prepare_entropy(void){if(badge_network_entropy_ready())return ESP_OK;int cmd=CMD_ENTROPY;return commands&&xQueueSend(commands,&cmd,0)==pdTRUE?ESP_OK:ESP_ERR_INVALID_STATE;}
-esp_err_t badge_network_start_setup(void){int cmd=CMD_START_SETUP;return commands&&xQueueSend(commands,&cmd,0)==pdTRUE?ESP_OK:ESP_ERR_INVALID_STATE;}
+esp_err_t badge_network_start_setup(void){int cmd=CMD_START_SETUP;return commands&&!atomic_load(&shutdown_requested)&&xQueueSendToFront(commands,&cmd,0)==pdTRUE?ESP_OK:ESP_ERR_INVALID_STATE;}
 esp_err_t badge_network_close_ap(void){int cmd=CMD_CLOSE_AP;return commands&&!atomic_load(&shutdown_requested)&&xQueueSend(commands,&cmd,0)==pdTRUE?ESP_OK:ESP_ERR_INVALID_STATE;}
 esp_err_t badge_network_wake_probe(void){
     if(!commands||atomic_load(&shutdown_requested))return ESP_ERR_INVALID_STATE;
+    if(atomic_exchange(&wake_probe_pending,true))return ESP_OK;
     int cmd=CMD_WAKE_PROBE;
-    return xQueueSend(commands,&cmd,0)==pdTRUE?ESP_OK:ESP_ERR_INVALID_STATE;
+    if(xQueueSend(commands,&cmd,0)==pdTRUE)return ESP_OK;
+    atomic_store(&wake_probe_pending,false);
+    return ESP_ERR_INVALID_STATE;
 }
 void badge_network_xiaozhi_power(bool active,bool busy){
     int desired=active?(busy?2:1):0;
@@ -522,5 +551,5 @@ esp_err_t badge_network_init(void){
     }
     strcpy(state.ssid,saved.ssid);
     if(xTaskCreate(worker,"badge_network",6144,NULL,3,NULL)!=pdPASS)return ESP_ERR_NO_MEM;
-    if(saved.ssid[0]){int cmd=CMD_CONNECT;xQueueSend(commands,&cmd,0);}return ESP_OK;
+    if(saved.ssid[0]){int cmd=CMD_AUTOCONNECT;xQueueSend(commands,&cmd,0);}return ESP_OK;
 }

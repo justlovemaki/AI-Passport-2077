@@ -35,7 +35,7 @@ CMake 默认拒绝沿用旧的调试配置；只有明确进行诊断构建时�
 
 仓库提交 `dependencies.lock` 以固定 ESP-IDF Managed Components 的解析结果。修改 `idf_component.yml` 后必须使用 ESP-IDF 5.5.3 重新生成锁文件、review 版本变化并与 manifest 一起提交；普通构建不应产生未提交的锁文件差异。
 
-固件门禁使用全新的临时构建目录，并从仓库 `sdkconfig.defaults` 生成隔离的 `sdkconfig`。它不会读取或覆盖开发者根目录的 `sdkconfig`，只把验证通过的合并镜像复制到 `build/FoloToy-AI-Passport-full.bin`。门禁同时验证[当前配置的固件布局](firmware-layout.zh_CN.md)：从 `flash_args` 读取镜像偏移，检查分区表 MD5、边界和不重叠，并确认应用从所配置的 app 分区起点开始且未超出分区。允许用户自定义分区布局。
+固件门禁使用全新的临时构建目录，并从仓库 `sdkconfig.defaults` 生成隔离的 `sdkconfig`，不会读取或覆盖开发者根目录的 `sdkconfig`。验证后，它在 `build/` 发布同一次构建的一致产物集：合并镜像、应用、引导程序、分区表、两个音效镜像、`flash_args`、`flasher_args.json` 及生成的音效目录元数据，并再次校验已发布产物。这样可避免保留数据安装器把新的合并镜像与另一配置留下的旧分段文件组合。发布复制若中断，`tools/flash_badge.py` 会在打开 USB 前校验完整映射和内容并拒绝不一致产物。门禁验证[当前配置的固件布局](firmware-layout.zh_CN.md)：镜像偏移、分区表 MD5、边界和不重叠，以及应用从所配置 app 分区起点开始且未超出分区。允许用户自定义分区布局。
 
 当前基线含一个可独立运行的纯逻辑测试：
 

@@ -31,9 +31,11 @@ The exact home header displays AI Passport, Wi-Fi and battery percentage.
 - OK while listening pauses conversation; OK again resumes. OK during a reply
   aborts it and opens a new listening turn after a short echo/tail guard.
   A recording still has a 30-second safety limit.
-- UP/DOWN adjusts output volume by 10. Version 2.1.4 remembers XiaoZhi volume
-  across re-entry and reboot, including mute at zero. It still uses the shared
-  audio hardware without a separate settings page.
+- Current UP/DOWN volume keys in conversation and the system AI-volume page
+  adjust by 5 percentage points, clamped to 0–100. Existing saved percentages,
+  including exact voice/API values not divisible by five, are retained rather
+  than rounded. The preference introduced in 2.1.4 still survives re-entry and
+  reboot, including mute at zero, and uses the shared audio hardware.
 - Long OK uses the system Previous / Home / Continue chooser.
 - Exiting closes the network connection and frees the audio resources.
   Microphone upload begins after the user starts conversation and continues on

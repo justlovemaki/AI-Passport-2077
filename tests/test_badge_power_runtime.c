@@ -29,6 +29,7 @@ esp_err_t bsp_audio_sleep(void){audio_calls++;if(fail_sleep)return ESP_FAIL;audi
 esp_err_t bsp_audio_wake(void){audio_calls++;if(fail_wake)return ESP_FAIL;audio_dark=false;return ESP_OK;}
 void badge_network_xiaozhi_power(bool active,bool busy){(void)active;(void)busy;}
 void badge_network_standby(bool asleep){standby=asleep;}
+esp_err_t badge_network_wake_probe(void){return ESP_OK;}
 static void step(uint32_t ms,bool awake,bool cpu){clock_ms=ms;badge_power_display_tick(awake,cpu);}
 int main(void){
     for(int n=1;n<=4;n++){
@@ -98,7 +99,17 @@ int main(void){
     badge_power_activity();step(1234007,false,false);fail_suspend=true;
     step(1264007,false,false);assert(panel_dark&&badge_power_screen_off());
     fail_suspend=false;step(1264008,false,false);assert(!panel_dark&&!badge_power_screen_off());
+    /* Radio can spend a minute inside its stream loop without outer ticks.
+     * Enqueued media must refresh activity so a channel change doesn't suspend
+     * a codec that was playing immediately before the transition. */
+    badge_power_enter();badge_power_audio_tick(true);
+    for(clock_ms=1265008;clock_ms<=1324008;clock_ms+=1000)badge_power_audio_activity();
+    before=audio_calls;badge_power_audio_tick(false);
+    assert(!audio_dark&&audio_calls==before&&locks[2]&&locks[3]);
+    clock_ms=1339007;badge_power_audio_tick(false);assert(!audio_dark);
+    clock_ms=1339008;badge_power_audio_tick(false);assert(audio_dark);
+    badge_power_leave();
     assert(audio_calls>0);
-    puts("Unified display owner: deadlines, AI busy, wake detector, audio restore, retry and PM locks PASS");
+    puts("Unified display owner: deadlines, stream activity, AI busy, audio restore, retry and PM locks PASS");
     return 0;
 }

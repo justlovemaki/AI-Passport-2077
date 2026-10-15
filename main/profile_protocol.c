@@ -4,6 +4,10 @@
 #include "badge_profile.h"
 #include "badge_power.h"
 #include "badge_network.h"
+#include "radio_diagnostics.h"
+#include "radio_probe.h"
+#include "esp_wifi.h"
+#include "esp_heap_caps.h"
 #include "xiaozhi_app.h"
 #include "passport_muse.h"
 #include "muse_style.h"
@@ -174,7 +178,7 @@ char *profile_protocol_request(const char *line,bool usb) {
     const char *sid=cJSON_IsString(session)?session->valuestring:"legacy";
     if(strlen(sid)>32)goto done;
     snprintf(client,sizeof(client),"%c:%s",usb?'U':'H',sid);
-    bool read_only=!strcmp(op->valuestring,"info")||!strcmp(op->valuestring,"read")||!strcmp(op->valuestring,"wifi_info")||!strcmp(op->valuestring,"wifi_scan_results")||!strcmp(op->valuestring,"badges")||!strcmp(op->valuestring,"xiaozhi_backend")||!strcmp(op->valuestring,"muse_config")||!strcmp(op->valuestring,"config_backup_info")||!strcmp(op->valuestring,"config_backup_read");
+    bool read_only=!strcmp(op->valuestring,"info")||!strcmp(op->valuestring,"read")||!strcmp(op->valuestring,"wifi_info")||!strcmp(op->valuestring,"radio_info")||!strcmp(op->valuestring,"wifi_scan_results")||!strcmp(op->valuestring,"badges")||!strcmp(op->valuestring,"xiaozhi_backend")||!strcmp(op->valuestring,"muse_config")||!strcmp(op->valuestring,"config_backup_info")||!strcmp(op->valuestring,"config_backup_read");
     if(!read_only)badge_power_activity();
     if(!read_only && transferring && strcmp(owner,client)) {e=ESP_ERR_INVALID_STATE;reason="upload_busy";goto done;}
     if(config_mode!=CONFIG_IDLE&&strcmp(config_owner,client)){e=ESP_ERR_INVALID_STATE;reason="backup_busy";goto done;}
@@ -282,6 +286,42 @@ char *profile_protocol_request(const char *line,bool usb) {
     } else if(!strcmp(op->valuestring,"badge_select")) {
         if(!cJSON_GetObjectItemCaseSensitive(q,"badge"))goto done;
         e=select_badge(badge);if(e==ESP_OK)catalog(reply);
+    } else if(!strcmp(op->valuestring,"radio_info")) {
+        static const char *keys[]={"session","active","httpBytes","httpReads","httpTimeouts","maxHttpUs","queuedBytes","pcmFrames","pcmBytes","sampleRate","channels","rebufferEvents","maxFeedGapUs","maxDecodeUs","error","pcmQueuedBytes","pcmUnderruns","minFreeHeap","writerStackFree","probeMode","readBytes","probeDrainedBytes","waitingForSpace","maxSpaceWaitUs","timeoutSocketReady","peerFamily","peerIp4","tls","socketReadyChecks"};
+        _Static_assert(sizeof(keys)/sizeof(keys[0])==RADIO_DIAG_COUNT,"radio diagnostic schema");
+        radio_diag_snapshot_t snapshot;radio_diagnostics_get(&snapshot);
+        uint32_t heap_free=heap_caps_get_free_size(MALLOC_CAP_8BIT);
+        uint32_t heap_largest=heap_caps_get_largest_free_block(MALLOC_CAP_8BIT);
+        cJSON *radio=cJSON_AddObjectToObject(reply,"radio");if(!radio){e=ESP_ERR_NO_MEM;goto done;}
+        cJSON_AddNumberToObject(radio,"version",4);
+        for(unsigned i=0;i<RADIO_DIAG_COUNT;i++)cJSON_AddNumberToObject(radio,keys[i],snapshot.values[i]);
+        cJSON_AddNumberToObject(radio,"heapFree",heap_free);cJSON_AddNumberToObject(radio,"heapLargest",heap_largest);
+        cJSON_AddNumberToObject(radio,"playbackState",radio_diagnostics_playback_state());
+        cJSON_AddBoolToObject(radio,"probeAllowed",radio_player_probe_available());cJSON_AddBoolToObject(radio,"probeBusy",radio_probe_busy());
+        cJSON_AddNumberToObject(radio,"nextReadBytes",radio_player_next_read_size());
+        if(snapshot.values[RADIO_DIAG_PEER_FAMILY]==4){
+            uint32_t ip=snapshot.values[RADIO_DIAG_PEER_IP4];char peer[24];
+            snprintf(peer,sizeof(peer),"%u.%u.%u.%u",(unsigned)(ip>>24),(unsigned)((ip>>16)&255),(unsigned)((ip>>8)&255),(unsigned)(ip&255));
+            cJSON_AddStringToObject(radio,"peerAddress",peer);
+        }
+        badge_network_status_t net;badge_network_status(&net);cJSON_AddBoolToObject(reply,"wifiConnected",net.connected);
+        wifi_ps_type_t ps;
+        if(esp_wifi_get_ps(&ps)==ESP_OK)cJSON_AddStringToObject(reply,"powerSave",ps==WIFI_PS_NONE?"NONE":ps==WIFI_PS_MAX_MODEM?"MAX_MODEM":"MIN_MODEM");
+        e=ESP_OK;
+    } else if(!strcmp(op->valuestring,"radio_receive_probe")) {
+        size_t seconds=0,read_bytes=0;
+        if(!usb)e=ESP_ERR_NOT_SUPPORTED;
+        else if(number(q,"seconds",20,&seconds)&&seconds>=5&&number(q,"readBytes",1024,&read_bytes)&&radio_probe_valid_read_size((unsigned)read_bytes)){
+            e=radio_player_receive_probe((unsigned)seconds,(unsigned)read_bytes)?ESP_OK:ESP_ERR_INVALID_STATE;
+            if(e!=ESP_OK)reason="Pause the initialized, connected radio and wait for stream cleanup before probing";
+        }
+    } else if(!strcmp(op->valuestring,"radio_read_size")) {
+        size_t read_bytes=0;
+        if(!usb)e=ESP_ERR_NOT_SUPPORTED;
+        else if(number(q,"readBytes",1024,&read_bytes)&&radio_probe_valid_read_size((unsigned)read_bytes)){
+            e=radio_player_set_read_size((unsigned)read_bytes)?ESP_OK:ESP_ERR_INVALID_STATE;
+            if(e!=ESP_OK)reason="Pause the initialized, connected radio before changing the volatile read size";
+        }
     } else if(!strcmp(op->valuestring,"wifi_info")) {
         badge_network_json(reply);yao_location_t place=yao_location_get();cJSON_AddItemToObject(reply,"yaoTime",yao_time_json(yao_time_now(),&place));cJSON_AddStringToObject(reply,"yaoLocationStatus",yao_location_status());e=ESP_OK;
     } else if(!strcmp(op->valuestring,"xiaozhi_backend")) {

@@ -74,7 +74,7 @@ int main(){lv_init();auto *d=lv_display_create(240,320);lv_display_set_color_for
             lv_obj_delete(reference);tick();
         }
         save("home");badge_ui_destroy();
-        muyu_state_t m;muyu_init(&m,0,1,2,0);muyu_ui_create();muyu_ui_refresh(&m,bat,true,true,true);tick();assert(!memcmp(expected,frame,sizeof(expected)));
+        muyu_state_t m;muyu_init(&m,0,1,MUYU_VOLUME_DEFAULT,0);muyu_ui_create();muyu_ui_refresh(&m,bat,true,true,true);tick();assert(!memcmp(expected,frame,sizeof(expected)));
         auto *save_hint=find_text(lv_screen_active(),"长按上 保存  长按OK 返回");assert(save_hint&&lv_obj_get_x(save_hint)+lv_obj_get_width(save_hint)<=240&&lv_obj_get_y(save_hint)+lv_obj_get_height(save_hint)<=320);
         save("muyu");muyu_ui_destroy();
         voice_navigation_t v;voice_navigation_init(&v);voice_ui_create();voice_ui_render(&v,-1,bat,nullptr);tick();assert(!memcmp(expected,frame,sizeof(expected)));save("voice");voice_ui_destroy();

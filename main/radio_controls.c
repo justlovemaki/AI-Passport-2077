@@ -1,4 +1,5 @@
 #include "radio_controls.h"
+#include "badge_volume.h"
 bool radio_direction_click(radio_quick_input_t *input,unsigned key,radio_input_event_t event){
     if(key>1)return false;
     unsigned bit=1u<<key;
@@ -14,7 +15,7 @@ void radio_controls_init(radio_controls_t *c,int volume,unsigned city){*c=(radio
 void radio_controls_settings(radio_controls_t *c){c->page=RADIO_SETTINGS;c->selected=0;}
 radio_action_t radio_controls_move(radio_controls_t *c,int direction){
     if(c->page==RADIO_MAIN)return direction<0?RADIO_CHANNEL_UP:RADIO_CHANNEL_DOWN;
-    if(c->page==RADIO_VOLUME){c->volume+=direction<0?5:-5;if(c->volume<0)c->volume=0;if(c->volume>100)c->volume=100;return RADIO_VOLUME_CHANGED;}
+    if(c->page==RADIO_VOLUME){c->volume=badge_volume_adjust(c->volume,direction<0?1:-1);return RADIO_VOLUME_CHANGED;}
     if(c->page==RADIO_SETTINGS)c->selected=cycle(c->selected,direction,3);
     if(c->page==RADIO_CITY)c->selected=cycle(c->selected,direction,8);
     if(c->page==RADIO_TIMER)c->selected=cycle(c->selected,direction,5);

@@ -28,12 +28,18 @@ requirements; it cannot achieve microphone-off standby power. Automatic wooden
 fish strikes, radio and sound playback continue with the screen off. Silent
 screen-off wooden fish and soundboard tasks poll less and skip unused UI work.
 
+Wi-Fi connection eligibility does not depend on the current page or modem-sleep policy. Key/wake probes are coalesced and respect a 15-second grace after a new station attempt, so repeated navigation does not continuously disconnect and rescan that attempt. AI idle/busy and screen-off standby can still request a probe. An active setup hotspot deliberately suspends automatic roaming/retries to protect configuration; explicit configuration-page scan/connect requests remain available.
+
 The read-only USB `info` response exposes screen/audio sleep and application
 performance leases in `power`, plus the configured Wi-Fi mode in
 `wifi.powerSave`. Reading it does not wake the display. This is not a current
-measurement. USB connection protection prevents automatic light sleep while a
-computer remains connected, preserving serial configuration. Measure battery
-standby current with the computer disconnected; an enabled setup hotspot also
+measurement. USB connection protection is configured to prevent automatic light
+sleep while connected. However, a board diagnostic run lost USB replies after
+screen sleep while the COM port remained visible; enumeration alone is not proof
+of a live diagnostic channel. Verify replies before collecting and temporarily
+keep the display active for affected USB sessions, restoring normal behavior when
+diagnostics end. This observation does not establish a fixed USB/low-power path.
+Measure battery standby current with the computer disconnected; an enabled setup hotspot also
 has different power requirements from station-only standby.
 
 The saved choice uses `screen_timeout` in `cyber_badge_v1` NVS. Missing or invalid
@@ -43,4 +49,6 @@ retains the prior active preference and leaves the selection page open.
 Validation: `tests/test_badge_power.c` covers choices and deadline arithmetic;
 `tests/test_badge_power_runtime.c` exercises the real power coordinator with
 stubbed time/display/audio (including wake retry, owner handoff and microphone
-restore); `tests/test_badge_navigation.c` covers selection, save and cancel.
+restore); `tests/test_badge_navigation.c` covers selection, save and cancel;
+`tests/test_badge_network_runtime.c` covers probe grace, boot-attempt deduplication,
+page-independent power policies and setup-hotspot isolation.

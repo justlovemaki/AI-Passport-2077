@@ -51,7 +51,7 @@ int main(int argc,char **argv) {
     lv_display_set_buffers(display,buffer,NULL,sizeof(buffer),LV_DISPLAY_RENDER_MODE_PARTIAL);
     lv_display_set_flush_cb(display,flush);
     /* Keep a real mini-app mounted underneath: modal memory is incremental. */
-    muyu_state_t state;muyu_init(&state,108,1,2,0);
+    muyu_state_t state;muyu_init(&state,108,1,MUYU_VOLUME_DEFAULT,0);
     muyu_ui_create();muyu_ui_refresh(&state,86,true,true,true);tick();
     badge_return_menu_t menu={.open=true,.count=3,.selected=0,
         .plan={.source=BADGE_PLAYING,.destination=BADGE_GAMES},

@@ -41,6 +41,14 @@ class VendoredDocumentationTest(unittest.TestCase):
         path.write_text(content, encoding="utf-8")
         return path
 
+    def firmware_versions(self, header: str, english: str, chinese: str) -> list[str]:
+        self.document("main/badge_profile.h", f'#define BADGE_VERSION "{header}"\n')
+        self.document("README.md", f'> Firmware Version: **v{english}**\n')
+        self.document("README.zh_CN.md", f'> 固件版本：**v{chinese}**\n')
+        errors: list[str] = []
+        CHECKS.check_firmware_version(errors)
+        return errors
+
     def roots(self) -> tuple[Path, ...]:
         errors: list[str] = []
         roots = CHECKS.vendored_document_roots(errors)
@@ -63,6 +71,25 @@ class VendoredDocumentationTest(unittest.TestCase):
         CHECKS.check_markdown_links(files, errors, roots)
         CHECKS.check_document_languages(files, errors, roots)
         return errors
+
+    def test_firmware_versions_must_be_aligned_numeric_semver(self) -> None:
+        self.assertEqual(self.firmware_versions("2.7.3", "2.7.3", "2.7.3"), [])
+        errors = self.firmware_versions("2.7.4", "2.7.3", "2.7.3")
+        self.assertEqual(len(errors), 1)
+        self.assertIn("firmware version mismatch", errors[0])
+        errors = self.firmware_versions("2.7", "2.7", "2.7")
+        self.assertEqual(len(errors), 3)
+        self.assertTrue(all("numeric X.Y.Z" in error for error in errors))
+
+    def test_missing_or_duplicate_firmware_version_markers_fail(self) -> None:
+        self.document("main/badge_profile.h", '#define BADGE_VERSION "2.7.3"\n#define BADGE_VERSION "2.7.3"\n')
+        self.document("README.md", "> Firmware Version: missing\n")
+        self.document("README.zh_CN.md", "> 固件版本：**v2.7.3**\n")
+        errors: list[str] = []
+        CHECKS.check_firmware_version(errors)
+        self.assertEqual(len(errors), 2)
+        self.assertTrue(any("main/badge_profile.h" in error for error in errors))
+        self.assertTrue(any("README.md" in error for error in errors))
 
     def test_empty_registry_keeps_upstream_documents_checked(self) -> None:
         path = self.document("components/vendor_audio/README.md")
@@ -164,6 +191,7 @@ class VendoredDocumentationTest(unittest.TestCase):
         with (
             patch.object(CHECKS, "git_files", return_value=files),
             patch.object(CHECKS, "check_required_files"),
+            patch.object(CHECKS, "check_firmware_version"),
             patch.object(CHECKS, "check_action_pins"),
             patch.object(CHECKS, "check_issue_forms"),
             contextlib.redirect_stderr(io.StringIO()) as output,

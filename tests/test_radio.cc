@@ -32,6 +32,8 @@ int main(){
     radio_controls_t c;radio_controls_init(&c,40,0);assert(!radio_controls_can_back(&c));assert(!radio_controls_back(&c));
     assert(radio_controls_move(&c,-1)==RADIO_CHANNEL_UP);assert(radio_controls_move(&c,1)==RADIO_CHANNEL_DOWN);assert(radio_controls_ok(&c)==RADIO_TOGGLE);
     radio_controls_settings(&c);radio_controls_ok(&c);assert(c.page==RADIO_VOLUME);
+    assert(radio_controls_move(&c,-1)==RADIO_VOLUME_CHANGED&&c.volume==45);
+    assert(radio_controls_move(&c,1)==RADIO_VOLUME_CHANGED&&c.volume==40);
     for(int i=0;i<30;i++){radio_controls_move(&c,-1);}assert(c.volume==100);
     for(int i=0;i<30;i++){radio_controls_move(&c,1);}assert(c.volume==0);
     radio_controls_t before=c;

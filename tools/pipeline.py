@@ -1,18 +1,19 @@
 #!/usr/bin/env python3
 """Unified Release, Backup, Restore & Flash Pipeline for AI Passport (ESP32-C3)
 
-Usage:
-    # 1. Standard App-only build & flash (Safest & Fastest, preserves user data in place):
-    python tools/pipeline.py --bump patch --flash
+Release workflow:
+    # 1. Bump source + both READMEs and build (run exactly once):
+    python tools/pipeline.py --bump patch
 
-    # 2. Build and flash with explicit Backup & Restore (Full safety net):
-    python tools/pipeline.py --bump patch --flash --backup-dir ./backups/latest --restore
+    # 2. Run the repository gate, then use tools/flash_badge.py with a private
+    #    backup directory outside the repository for preserving installation.
 
-    # 3. Dedicated Backup only:
-    python tools/pipeline.py --backup-only --backup-dir ./backups/latest
+Other operations:
+    python tools/pipeline.py --backup-only --backup-dir <private-dir>
+    python tools/pipeline.py --restore-only --backup-dir <private-dir>
 
-    # 4. Dedicated Restore only:
-    python tools/pipeline.py --restore-only --backup-dir ./backups/latest
+`--flash` remains an app-only incremental development shortcut. It is not the
+release/preserving acceptance flow and does not replace the complete gate.
 """
 
 import argparse
@@ -26,6 +27,14 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 HEADER_FILE = REPO_ROOT / "main" / "badge_profile.h"
+README_FILE = REPO_ROOT / "README.md"
+README_ZH_FILE = REPO_ROOT / "README.zh_CN.md"
+VERSION_RE = re.compile(r"^[0-9]+\.[0-9]+\.[0-9]+$")
+VERSION_TARGETS = (
+    (HEADER_FILE, re.compile(r'(#define\s+BADGE_VERSION\s+")[^"]+(")')),
+    (README_FILE, re.compile(r'(> Firmware Version: \*\*v)[^*]+(\*\*)')),
+    (README_ZH_FILE, re.compile(r'(> 固件版本：\*\*v)[^*]+(\*\*)')),
+)
 BUILD_DIR = REPO_ROOT / "build"
 FULL_BIN = BUILD_DIR / "FoloToy-AI-Passport-full.bin"
 APP_BIN = BUILD_DIR / "FoloToy-AI-Passport.bin"
@@ -41,18 +50,34 @@ USER_PARTITIONS = [
 ]
 
 
+def _target_version(path: Path, pattern: re.Pattern[str]) -> str:
+    try:
+        content = path.read_bytes().decode("utf-8")
+    except OSError as error:
+        raise ValueError(f"Could not read version target {path.relative_to(REPO_ROOT)}") from error
+    matches = list(pattern.finditer(content))
+    if len(matches) != 1:
+        raise ValueError(f"Expected exactly one version marker in {path.relative_to(REPO_ROOT)}")
+    # The marker patterns place the semantic version between capture groups.
+    value = content[matches[0].end(1):matches[0].start(2)]
+    if not VERSION_RE.fullmatch(value):
+        raise ValueError(f"Invalid semantic version {value!r} in {path.relative_to(REPO_ROOT)}")
+    return value
+
+
 def get_current_version() -> str:
-    content = HEADER_FILE.read_text(encoding="utf-8")
-    m = re.search(r'#define\s+BADGE_VERSION\s+"([^"]+)"', content)
-    if not m:
-        raise ValueError("Could not find BADGE_VERSION in main/badge_profile.h")
-    return m.group(1)
+    versions = [(path, _target_version(path, pattern)) for path, pattern in VERSION_TARGETS]
+    current = versions[0][1]
+    mismatched = [f"{path.relative_to(REPO_ROOT)}={version}" for path, version in versions if version != current]
+    if mismatched:
+        raise ValueError("Version targets disagree: " + ", ".join(mismatched))
+    return current
 
 
 def bump_version_string(ver: str, part: str) -> str:
+    if not VERSION_RE.fullmatch(ver) or part not in ("patch", "minor", "major"):
+        raise ValueError("Version bump requires X.Y.Z and patch, minor or major")
     nums = [int(x) for x in ver.split(".")]
-    while len(nums) < 3:
-        nums.append(0)
     if part == "major":
         nums[0] += 1
         nums[1] = 0
@@ -66,16 +91,52 @@ def bump_version_string(ver: str, part: str) -> str:
 
 
 def update_version(new_ver: str):
-    content = HEADER_FILE.read_text(encoding="utf-8")
-    new_content, count = re.subn(
-        r'(#define\s+BADGE_VERSION\s+")[^"]+(")',
-        rf"\g<1>{new_ver}\g<2>",
-        content,
-    )
-    if count == 0:
-        raise ValueError("Failed to replace BADGE_VERSION in main/badge_profile.h")
-    HEADER_FILE.write_text(new_content, encoding="utf-8")
-    print(f"[Version] Updated to: {new_ver}")
+    if not VERSION_RE.fullmatch(new_ver):
+        raise ValueError("--version must use numeric X.Y.Z format")
+    current = get_current_version()  # Fail closed before changing an inconsistent tree.
+    originals: dict[Path, bytes] = {}
+    replacements: dict[Path, bytes] = {}
+    for path, pattern in VERSION_TARGETS:
+        raw = path.read_bytes()
+        content = raw.decode("utf-8")
+        replaced, count = pattern.subn(rf"\g<1>{new_ver}\g<2>", content)
+        if count != 1:
+            raise ValueError(f"Failed to replace one version marker in {path.relative_to(REPO_ROOT)}")
+        originals[path] = raw
+        replacements[path] = replaced.encode("utf-8")
+
+    # Prepare every same-directory temporary before replacing anything. Replace
+    # the source-of-truth header last; a failure rolls already-replaced peers back.
+    temporary: dict[Path, Path] = {}
+    replaced_paths: list[Path] = []
+    try:
+        for path, content in replacements.items():
+            temp = path.with_name(path.name + ".version-tmp")
+            temp.write_bytes(content)
+            temporary[path] = temp
+        ordered = [README_FILE, README_ZH_FILE, HEADER_FILE]
+        for path in ordered:
+            temporary[path].replace(path)
+            replaced_paths.append(path)
+    except OSError:
+        for path in replaced_paths:
+            path.write_bytes(originals[path])
+        raise
+    finally:
+        for temp in temporary.values():
+            temp.unlink(missing_ok=True)
+
+    print(f"[Version] Updated {current} -> {new_ver}: source + English/Chinese README")
+
+
+def verify_release_metadata(expected: str) -> None:
+    actual = get_current_version()
+    if actual != expected:
+        raise ValueError(f"Synchronized version check failed: expected {expected}, got {actual}")
+    result = subprocess.run([sys.executable, str(REPO_ROOT / "tools" / "check_repo.py")])
+    if result.returncode != 0:
+        raise SystemExit(result.returncode)
+    print(f"[Version] Repository metadata verified at {actual}")
 
 
 def run_idf_command(pwsh_script: str):
@@ -228,7 +289,7 @@ def main():
     parser = argparse.ArgumentParser(description="AI Passport Automated Build, Backup, Restore & Flash Pipeline")
     parser.add_argument("--bump", choices=["patch", "minor", "major"], default=None, help="Auto-bump version component")
     parser.add_argument("--version", type=str, default=None, help="Specify exact version (e.g. 2.6.58)")
-    parser.add_argument("--flash", action="store_true", help="Flash application to device (preserves in-place data)")
+    parser.add_argument("--flash", action="store_true", help="Development-only app flash; release flow uses tools/flash_badge.py after validation")
     parser.add_argument("--erase-all", action="store_true", help="DANGEROUS: Flash full 0x0 image and reset to factory defaults")
     parser.add_argument("--backup-dir", type=Path, default=None, help="Directory for backup/restore (defaults to ./backups/YYYYMMDD-HHMMSS)")
     parser.add_argument("--backup", action="store_true", help="Explicitly backup user partitions before flashing")
@@ -275,6 +336,7 @@ def main():
         update_version(new_ver)
     else:
         print(f"[Version] Current version is: {cur_ver}")
+    verify_release_metadata(new_ver)
 
     # 2. Build
     build_and_merge()

@@ -1,6 +1,7 @@
 #include "badge_navigation.h"
 #include "xiaozhi_style.h"
 #include "badge_power_logic.h"
+#include "badge_volume.h"
 badge_input_t badge_ai_long_gesture(badge_page_t page,bool up,bool down,bool long_press){
     if(page!=BADGE_AI_CHAT||!long_press)return BADGE_NONE;
     return up?BADGE_AI_CYCLE_STYLE:down?BADGE_AI_OPEN_SETTINGS:BADGE_NONE;
@@ -122,9 +123,8 @@ badge_action_t badge_navigation_handle(badge_navigation_t *s,badge_input_t input
     }
     if(s->page==BADGE_AI_VOLUME_PAGE){
         if(input==BADGE_BACK||input==BADGE_OK){s->page=BADGE_AI_SETTINGS;return BADGE_REDRAW;}
-        if(input==BADGE_UP&&s->ai_volume<100)s->ai_volume+=10;
-        if(input==BADGE_DOWN&&s->ai_volume>0)s->ai_volume=s->ai_volume>10?s->ai_volume-10:0;
-        if(s->ai_volume>100)s->ai_volume=100;
+        if(input==BADGE_UP)s->ai_volume=(unsigned)badge_volume_adjust((int)s->ai_volume,1);
+        if(input==BADGE_DOWN)s->ai_volume=(unsigned)badge_volume_adjust((int)s->ai_volume,-1);
         return BADGE_AI_VOLUME;
     }
     if(s->page==BADGE_SLEEP_SETTINGS){

@@ -4,6 +4,7 @@
 #include "badge_footer.h"
 #include "badge_profile.h"
 #include "badge_layout.h"
+#include "badge_volume.h"
 #include "profile_format.h"
 #include "lvgl.h"
 #include "src/misc/cache/instance/lv_image_cache.h"
@@ -310,7 +311,9 @@ static void artwork(lv_event_t *e) {
         line(l,27,147,213,147,1,DARK_RED);line(l,27,190,213,190,1,DARK_RED);line(l,27,232,213,232,1,DARK_RED);
     } else {
         cut_panel(l,14,110,212,91,PANEL,DARK_RED);
-        for(unsigned i=0;i<5;i++) rect(l,27+i*38,178,32,9,(navigation.page==BADGE_AI_VOLUME_PAGE?i*20<navigation.ai_volume:i<=navigation.brightness)?RED:DARK_RED);
+        if(navigation.page==BADGE_AI_VOLUME_PAGE){
+            for(unsigned i=0;i<20;i++)rect(l,27+i*10,178,7,9,badge_volume_segment_filled(navigation.ai_volume,i)?RED:DARK_RED);
+        }else for(unsigned i=0;i<5;i++)rect(l,27+i*38,178,32,9,i<=navigation.brightness?RED:DARK_RED);
         line(l,14,229,226,229,1,DARK_RED);line(l,14,253,226,253,1,DARK_RED);
     }
 }

@@ -214,7 +214,7 @@ MCU 是 I2S master，ES8311 是 slave；I2S0 的 TX/RX 全双工通道共享 MCL
 - `no_dac_ref=true` 对单声道麦克风录音是必要的；改为 false 会让读入通道成为 DAC reference，表现为录音恒零。
 - 麦克风模拟输入增益当前为 30 dB；输出音量 API 为 0–100%。增益和音量不是同一个概念。
 - `bsp_audio_read/write` 是阻塞调用，不能放在按键回调或 LVGL 任务中。
-- I2S DMA 当前为 6 个 descriptor、每个 240 frame。更改 DMA 或 LVGL buffer 前必须联合评估内部 RAM。
+- I2S DMA 当前为 4 个 descriptor、每个 160 frame。评估新的播放采样率时须复查 `bsp_audio.c`；增加共用 DMA 也会增加录音内存。
 - 调用 `bsp_audio_sleep()` 前必须停止所有 PCM 读写。该接口通过已打开的控制接口直接执行完整 ES8311 suspend 寄存器序列，不依赖 codec-device opened 标志，因此开机后从未播放也不需无声 open。它会回读 `0x00`、`0x01`、`0x0D`、`0x0E`、`0x12` 和 `0x45`，失败后等待 5 ms 重试一次完整序列，并即使音频从未打开也显式停止两条 I2S channel。
 - light sleep 返回后调用 `bsp_audio_wake()`，以休眠前格式重新打开 codec/I2S 通路。两个接口均为幂等操作；音频子系统不可用时视为无需暂停或恢复。deep sleep 唤醒会重启，改由正常 `bsp_audio_init()` 流程初始化。
 - REG0E 仍写入 `0xFF`，但回读只比较 bit6:0，掩码和预期值均为 `0x7F`。读到 `0x7F` 或 `0xFF` 都通过，bit7 读为零不应误判为 suspend 失败。其余五个寄存器继续逐字节完整校验。I2C 错误或参与校验的位不符，重试一次后仍返回失败：Low Power demo 取消 light sleep 并尝试恢复音频；deep sleep 则记录错误并继续终端关闭流程。
@@ -229,7 +229,7 @@ Audio demo 的工作任务在 PCM 分块之间检查取消状态，并在页面�
 
 将音调 demo 扩展为持续 BGM、界面刷新和 NVS 存档并行的应用时，按键后出现的杂音可能来自 PCM 供给中断，即使该按键没有播放音效。修改音效或音量之前，先分别检查以下两条路径：
 
-- **任务供给不及时：** 同时测量 PCM 最大供给间隔、重绘和保存耗时。6 个 DMA descriptor、每个 240 frame，在 16 kHz 且缓冲填满时最多容纳 `6 * 240 / 16000 = 90 ms`；实际剩余余量可能更小。按键回调和 LVGL 锁内不做阻塞操作，纯焦点移动不写 Flash，音频工作任务相对刷屏任务应有足够优先级。任务仍须阻塞或让出 CPU；不要忙循环，也不要未检查应用任务就照抄优先级数值。仍在有意义的状态变化时保存。
+- **任务供给不及时：** 同时测量 PCM 最大供给间隔、重绘和保存耗时。4 个 DMA descriptor、每个 160 frame，在 16 kHz 且缓冲填满时最多容纳 `4 * 160 / 16000 = 40 ms`，在 44.1 kHz 下约为 14.5 ms；写入后的实际剩余余量可能更小。因此，高采样率解码／联网可能需要独立带缓冲的 PCM 供给任务，而不是扩大共用 TX／RX DMA 配置。按键回调和 LVGL 锁内不做阻塞操作，纯焦点移动不写 Flash，音频工作任务相对刷屏任务应有足够优先级。任务仍须阻塞或让出 CPU；不要忙循环，也不要未检查应用任务就照抄优先级数值。仍在有意义的状态变化时保存。
 - **Flash/cache 停顿：** Flash 写入或擦除可能关闭缓存，延后默认 I2S 中断。播放与保存并行时，启用 `CONFIG_I2S_ISR_IRAM_SAFE=y`，并核对生成的 `sdkconfig`（只改 defaults 不会覆盖已有配置）。注册的 I2S 回调及其调用链必须满足 IRAM 安全要求，访问的数据放在内部 DRAM；只给回调加 `IRAM_ATTR` 不够。回调中不要打印日志、分配内存或读取 Flash 素材。参见 [ESP-IDF 5.5.3 I2S IRAM 安全说明](https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32c3/api-reference/peripherals/i2s.html#iram-safe)。
 
 中断放入 IRAM 并不能让位于 Flash 的音频生产任务持续运行，也不代表缓冲无限。应根据实测停顿和内部 RAM 预算准备排队的 PCM，或在安全的播放边界保存。在最终应用固件上，持续播放 BGM，反复切换选项并确认会实际写入 NVS 的操作，再验证保存和重新载入。对照供给间隔并实机试听：日志无告警或单独播放音调成功，都不能证明并发播放没有杂音。

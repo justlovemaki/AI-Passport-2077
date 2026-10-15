@@ -1,11 +1,17 @@
 #include "muyu_logic.h"
 static const uint32_t intervals[] = {2000, 1000, 750, 500};
-static const uint8_t volumes[] = {0, 20, 40, 60, 80};
+bool muyu_volume_decode(uint8_t stored,bool legacy,uint8_t *percent)
+{
+    if(!percent)return false;
+    if(legacy){if(stored>=5)return false;*percent=(uint8_t)(stored*20);return true;}
+    if(stored>BADGE_VOLUME_MAX||stored%BADGE_VOLUME_STEP)return false;
+    *percent=stored;return true;
+}
 void muyu_init(muyu_state_t *s, uint32_t total, uint8_t speed, uint8_t volume, uint32_t now)
 {
     *s = (muyu_state_t){.total = total <= MUYU_COUNT_MAX ? total : MUYU_COUNT_MAX,
         .speed = speed < MUYU_SPEED_COUNT ? speed : 1,
-        .volume = volume < MUYU_VOLUME_COUNT ? volume : 2, .last_save_ms = now};
+        .volume = volume <= BADGE_VOLUME_MAX && volume % BADGE_VOLUME_STEP == 0 ? volume : MUYU_VOLUME_DEFAULT, .last_save_ms = now};
 }
 bool muyu_strike(muyu_state_t *s)
 {
@@ -16,7 +22,7 @@ bool muyu_strike(muyu_state_t *s)
     return true;
 }
 uint32_t muyu_interval(const muyu_state_t *s) { return intervals[s->speed]; }
-uint8_t muyu_volume(const muyu_state_t *s) { return volumes[s->volume]; }
+uint8_t muyu_volume(const muyu_state_t *s) { return s->volume; }
 void muyu_toggle_auto(muyu_state_t *s, uint32_t now)
 {
     s->automatic = !s->automatic;
@@ -30,7 +36,7 @@ void muyu_next_speed(muyu_state_t *s, uint32_t now)
 }
 void muyu_next_volume(muyu_state_t *s)
 {
-    s->volume = (s->volume + 1) % MUYU_VOLUME_COUNT;
+    s->volume = s->volume == BADGE_VOLUME_MAX ? 0 : (uint8_t)badge_volume_adjust(s->volume,1);
     s->dirty = true;
 }
 bool muyu_tick(muyu_state_t *s, uint32_t now)
